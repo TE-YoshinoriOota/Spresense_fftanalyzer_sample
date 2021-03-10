@@ -22,9 +22,6 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST);
 #define B1 (6)
 #define B0 (7)
 
-pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-
-
 DynamicJsonDocument* json;
 
 void setup() {

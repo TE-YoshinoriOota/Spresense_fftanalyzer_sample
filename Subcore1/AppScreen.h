@@ -97,6 +97,15 @@
 #define FFT_UNIT0_HEAD    FFT_GRAPH0_HEAD + FFT_BOX_HEIGHT + 2
 #define FFT_UNIT1_HEAD    FFT_GRAPH1_HEAD + FFT_BOX_HEIGHT + 2
 
+/* FFT and WAV graph realted parameters */  
+#define WAV_MAX_AMP   2000
+#define WAV_MIN_AMP   100
+#define WAV_AMP_STEP  100
+#define FFT_MAX_AMP   1000
+#define FFT_MIN_AMP   1
+#define FFT_AMP_STEP  10
+
+
 #define FFT_MODE_WAV_FFT  (1)
 #define FFT_MODE_FFT_FFT  (2)
 #define FFT_MODE_WAV_WAV  (3)

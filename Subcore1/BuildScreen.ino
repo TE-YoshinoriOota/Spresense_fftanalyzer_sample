@@ -9,6 +9,8 @@
 #define SCR_TYPE_FFT4  (6)
 #define SCR_TYPE_ORBT  (7)
 
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+
 struct Response response;
 static int cur_scrType = -1;
 
@@ -121,12 +123,15 @@ static void stopApplication() {
 
 /* Response related functions */
 void getResponse(struct Response *res) {
+  /* this function is called in the main loop, so it needs to avoid a conflict with the interrupt function */
   pthread_mutex_lock(&m);
   memcpy(res, &response, sizeof(response));
   pthread_mutex_unlock(&m);
 }
 
 void updateResponse(char* label, int value, int cur0, int cur1, int next_id) {
+
+  /* this function is called in a button interrupt function, so block it */
   pthread_mutex_lock(&m);
   if (sizeof(response.label) >= sizeof(label)) 
     memcpy(response.label, label, sizeof(label));
