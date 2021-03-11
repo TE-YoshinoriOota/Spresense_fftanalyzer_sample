@@ -103,12 +103,22 @@
 #define WAV_AMP_STEP  100
 #define FFT_MAX_AMP   1000
 #define FFT_MIN_AMP   1
-#define FFT_AMP_STEP  10
+#define FFT_AMP_STEP  1
 
 
 #define FFT_MODE_WAV_FFT  (1)
 #define FFT_MODE_FFT_FFT  (2)
 #define FFT_MODE_WAV_WAV  (3)
+
+
+#define SCR_TYPE_PAGE  (0)
+#define SCR_TYPE_MENU  (1)
+#define SCR_TYPE_INPT  (2)
+#define SCR_TYPE_DMNU  (3)
+#define SCR_TYPE_MNTR  (4)
+#define SCR_TYPE_WVFT  (5)
+#define SCR_TYPE_FFT2  (6)
+#define SCR_TYPE_ORBT  (7)
 
 struct Response {
   char label[5];
@@ -124,9 +134,17 @@ struct SensorData {
   float dis;
 };
 
-struct FFTData {
+struct FftWavData {
   float* pWav;
   float* pFft;
+  int len;
+  float df;
+};
+
+
+struct FftFftData {
+  float* pFft;
+  float* pSubFft;
   int len;
   float df;
 };
@@ -145,7 +163,8 @@ void buildChStatus(DynamicJsonDocument* doc);
 void buildButton(DynamicJsonDocument* doc);
 void buildNextBackConnection(DynamicJsonDocument* doc);
 void putSensorValue(float acc, float vel, float dis);
-void putDraw2WayGraph(float* pWav0, int len0, float* pFft1, int len1, float df = 0.0, int mode = FFT_MODE_WAV_FFT);
+void putDraw2WayGraph(float* pWav0, int len0, float* pFft1, int len1, float df);
+void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
 
 
 #endif /* __APP_SCREEN_HEADER_GURAD__ */

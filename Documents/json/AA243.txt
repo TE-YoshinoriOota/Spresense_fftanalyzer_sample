@@ -1,0 +1,14 @@
+{
+  "id":243,
+  "title":"SENSOR MONITOR",
+  "type":4,
+  "ch_disp":1,
+  "ch0":0,
+  "back":222,
+  "next0":0,
+  "res_label":"non",
+   "B0":"    ",
+   "B1":"    ",
+   "B2":"BACK",
+   "B3":"NEXT"
+}

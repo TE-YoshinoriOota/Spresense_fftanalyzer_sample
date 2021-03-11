@@ -18,10 +18,8 @@
 #define SID_WAV_MASK 0x04
 #define SID_FFT_MASK 0x08
 
-// #define COPY_BUFFER
-
 #define SUBCORE (1)
-#define JSON_BUFFER    (768)
+#define JSON_BUFFER    (1024)
 
 #define MAX_FIFO_BUFF  (4096)
 #define MAX_CHANNEL    (4)
@@ -40,9 +38,16 @@ struct SensorData {
   float dis;
 };
 
-struct FFTData {
+struct FftWavData {
   float* pWav;
   float* pFft;
+  int len;
+  float df;
+};
+
+struct FftFftData {
+  float* pFft;
+  float* pSubFft;
   int len;
   float df;
 };
@@ -64,6 +69,7 @@ pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 AudioClass *theAudio = AudioClass::getInstance();
 static char *pRaw;
 static float* pWav = NULL;
+static float* pSubWav = NULL;
 static bool bProcessing = false;
 static bool bThreadStopped = true;
 static bool bSignalProcessingStarted    = false;
@@ -72,9 +78,10 @@ static bool bSignalProcessingStarted    = false;
 RingBuff *ringbuff = NULL;
 static float* pTmp = NULL;
 static float* pFft = NULL;
-static float* pSubWav = NULL;
 static float* pSubFft = NULL;
-static FFTData fftData;
+static FftWavData fftWavData;
+static FftFftData fft2Data;
+
 
 /* System properties */
 static int  g_sid;
@@ -160,27 +167,31 @@ void loop() {
       sid = SID_DAT_MASK;
       MP.Send(sid, &sdata, SUBCORE);
       
-    } else if (sid & SID_FFT_MASK) {
+    } else if ((sid & (SID_FFT_MASK | SID_WAV_MASK)) == (SID_FFT_MASK | SID_WAV_MASK)) {
     /* request calculate fft data */
 
-      Serial.println(">");
-      calc_fft_data(&fftData);
+      calc_fft_data(&fftWavData);
 
-#ifdef COPY_BUFFER
-      struct FFTData fdata;
-      memcpy(&fdata, &fftData, sizeof(struct FFTData));
-      memcpy(pSubWav, fftData.pWav, sizeof(float)*g_samp);
-      memcpy(pSubFft, fftData.pFft, sizeof(float)*g_samp/2);
-      fdata.pWav = pSubWav;
-      fdata.pFft = pSubFft;
-#endif
 
-      Serial.println("Send fft data to SUBCORE");
+      Serial.println("Send fft-wav data to SUBCORE");
+
+      /* send the wan and fft data to update the graph on LCD display */     
+      sid = (SID_FFT_MASK | SID_WAV_MASK);
+      MP.Send(sid, &fftWavData, SUBCORE);
+
+    } else if ((sid & SID_FFT_MASK) == (SID_FFT_MASK)) {
+    /* request calculate double fft data */
+
+      calc_fft2_data(&fft2Data);
+
+
+      Serial.println("Send fft-fft data to SUBCORE");
 
       /* send the wan and fft data to update the graph on LCD display */     
       sid = SID_FFT_MASK;
-      MP.Send(sid, &fftData, SUBCORE);
+      MP.Send(sid, &fft2Data, SUBCORE);
 
+      
     }
   }
   usleep(1);

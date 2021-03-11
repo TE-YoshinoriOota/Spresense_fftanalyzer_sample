@@ -1,0 +1,28 @@
+{
+  "id":0,
+  "title":"HOME",
+   "type":0,
+   "item_num":4,
+   "cur0":0,
+   "cur1":0,
+   "item0":"Sensor Setup",
+   "item1":"Sensor Monitor",
+   "item2":"Single FFT Monitor",
+   "item3":"Advanced FFT Monitor",
+   "item0_v":-1,
+   "item1_v":-1,
+   "item2_v":-1,
+   "item3_v":-1,
+   "ch_disp":0,
+   "back":0,
+   "next0":111,
+   "next1":211,
+   "next2":311,
+   "next3":431,
+   "res_label":"",
+   "B0":"DOWN",
+   "B1":"  UP",
+   "B2":"BACK",
+   "B3":"NEXT"
+
+}

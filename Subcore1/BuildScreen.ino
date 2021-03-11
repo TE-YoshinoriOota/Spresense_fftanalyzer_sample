@@ -1,13 +1,5 @@
 #include "AppScreen.h"
 
-#define SCR_TYPE_PAGE  (0)
-#define SCR_TYPE_MENU  (1)
-#define SCR_TYPE_INPT  (2)
-#define SCR_TYPE_DMNU  (3)
-#define SCR_TYPE_MNTR  (4)
-#define SCR_TYPE_FFT2  (5)
-#define SCR_TYPE_FFT4  (6)
-#define SCR_TYPE_ORBT  (7)
 
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
@@ -38,20 +30,37 @@ static void BuildScreen(DynamicJsonDocument *doc) {
   switch (cur_scrType) {
   case SCR_TYPE_PAGE: 
   case SCR_TYPE_MENU:
-    buildMenu(doc); break;
+    MPLog("Building Page or Menu Screen\n");
+    buildMenu(doc); 
+    buildChStatus(doc);
+    break;
   case SCR_TYPE_INPT: 
-    buildInput(doc); break;
+    MPLog("Building Input Screen\n");
+    buildInput(doc); 
+    buildChStatus(doc);
+    break;
   case SCR_TYPE_DMNU:
-    buildDMenu(doc); break;  
+    MPLog("Building Double Menu Screen\n");
+    buildDMenu(doc);
+    buildChStatus(doc);
+    break;  
   case SCR_TYPE_MNTR:
+    MPLog("Building Monitor Screen\n");
     buildMonitor(doc);
     startSensorApp();
+    buildChStatus(doc);
+    break;
+  case SCR_TYPE_WVFT:
+    MPLog("Building FFT-WAV Screen\n");
+    build2WayGraph(doc);
+    startFftWavApp();
     break;
   case SCR_TYPE_FFT2:
+    MPLog("Building FFT-FFT Screen\n");
     build2WayGraph(doc);
-    startFftApp();
+    startFftFftApp();
+    break;
   }
-  buildChStatus(doc);
   buildButton(doc);
   buildNextBackConnection(doc);
 }
@@ -85,40 +94,73 @@ void requestSensorData() {
 }
 
 
-
-/* run FFT application */
-static bool bFftAppRunning = false;
-static bool bReceivedFftData = false;
-void startFftApp() {
-  bFftAppRunning = true;
-  bReceivedFftData = true;
+/* run FFT-WAV application */
+static bool bFftWavAppRunning = false;
+static bool bReceivedFftWavData = false;
+void startFftWavApp() {
+  bFftWavAppRunning = true;
+  bReceivedFftWavData = true;
 }
 
-bool isFftAppRunning() {
-  return bFftAppRunning;
+bool isFftWavAppRunning() {
+  return bFftWavAppRunning;
 }
 
-void stopFftApp() {
-  bFftAppRunning = false;
+void stopFftWavApp() {
+  bFftWavAppRunning = false;
 }
 
-bool isFftDataReceived() {
-  return bReceivedFftData;
+bool isFftWavDataReceived() {
+  return bReceivedFftWavData;
 }
 
-bool receivedFftData() {
-  bReceivedFftData = true;
+bool receivedFftWavData() {
+  bReceivedFftWavData = true;
 }
 
-void requestFftData() {
-  bReceivedFftData = false;
+void requestFftWavData() {
+  bReceivedFftWavData = false;
 }
+
+
+/* run FFT-FFT application */
+static bool bFftFftAppRunning = false;
+static bool bReceivedFftFftData = false;
+void startFftFftApp() {
+  bFftFftAppRunning = true;
+  bReceivedFftFftData = true;
+}
+
+bool isFftFftAppRunning() {
+  return bFftFftAppRunning;
+}
+
+void stopFftFftApp() {
+  bFftFftAppRunning = false;
+}
+
+bool isFftFftDataReceived() {
+  return bReceivedFftFftData;
+}
+
+bool receivedFftFftData() {
+  bReceivedFftFftData = true;
+}
+
+void requestFftFftData() {
+  bReceivedFftFftData = false;
+}
+
 
 
 /*** Force Halt ***/
 static void stopApplication() {
   bSensorAppRunning = false;
-  bFftAppRunning = false;
+  bFftWavAppRunning = false;
+  bFftFftAppRunning = false;
+  bReceivedSensorData = false;
+  bReceivedFftWavData = false;
+  bReceivedFftFftData = false;
 }
 
 /* Response related functions */

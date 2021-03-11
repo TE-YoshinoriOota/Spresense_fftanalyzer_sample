@@ -32,7 +32,7 @@ void setup() {
 }
 
 void loop() {
-  int8_t sid;
+  int8_t sid = 0x00;
   struct Response *res;
   void *data;
 
@@ -54,19 +54,30 @@ void loop() {
       requestSensorData();
     }
     
-  } else if (isFftAppRunning()) {
+  } else if (isFftFftAppRunning()) {
 
     /* fft monitor application running */
     /* check wheter the display process is running */
-    if (isFftDataReceived()) {
-      MPLog("Req FFT\n");  
+    if (isFftFftDataReceived()) {
+      MPLog("Req FFT-FFT\n");  
       sid = SID_FFT_MASK;
       MP.Send(sid, data);
-      requestFftData();
+      requestFftFftData();
     }
-  }
+  } else if (isFftWavAppRunning()) {
 
-  /* data achieved from MainCore */
+    /* fft monitor application running */
+    /* check wheter the display process is running */
+    if (isFftWavDataReceived()) {
+      MPLog("Req FFT-WAV\n");  
+      sid = (SID_FFT_MASK | SID_WAV_MASK);
+      MP.Send(sid, data);
+      requestFftWavData();
+    }
+
+  } 
+
+  /* data arrived from MainCore */
   float dummy = 0.0;
   if (MP.Recv(&sid, &data) < 0) return;
   MPLog("sid: 0x%02x\n", sid);
@@ -91,22 +102,43 @@ void loop() {
     receivedSensorData();
     delay(100); /* delay for avoiding data flicker on LCD */
     
-  } else if (sid & SID_FFT_MASK) {
+  } else if ((sid & (SID_FFT_MASK | SID_WAV_MASK)) == (SID_FFT_MASK | SID_WAV_MASK)) {
 
-    MPLog("FFT Data arrived\n");
+    MPLog("FFT-WAV Data arrived\n");
     
     /* check if th data is for FFT monitor application */
-    struct FFTData *fft = (struct FFTData*)data;
+    struct FftWavData *fft = (struct FftWavData*)data;
     if (fft->len == 0) { /* sometimes MainCore send a null data */
       MPLog("fft->len(%d)\n", fft->len);
-      receivedFftData();
+      receivedFftWavData();
       delay(500);
       return;
     }
     
     MPLog("fft->len(%d), fft->df(%f)\n", fft->len, fft->df);
-    putDraw2WayGraph(fft->pWav, fft->len, fft->pFft, fft->len/2, fft->df, FFT_MODE_WAV_FFT);
-    receivedFftData();
+    putDraw2WayGraph(fft->pWav, fft->len, fft->pFft, fft->len/2, fft->df);
+    receivedFftWavData();
+    
+    uint32_t delay_time = (uint32_t)(1000. / fft->df);
+    MPLog("dt=%d\n", delay_time);
+    delay(delay_time);
+    
+  } else if ((sid & SID_FFT_MASK) == (SID_FFT_MASK)) {
+
+    MPLog("FFT-FFT Data arrived\n");
+    
+    /* check if th data is for FFT monitor application */
+    struct FftFftData *fft = (struct FftFftData*)data;
+    if (fft->len == 0) { /* sometimes MainCore send a null data */
+      MPLog("fft->len(%d)\n", fft->len);
+      receivedFftFftData();
+      delay(500);
+      return;
+    }
+    
+    MPLog("fft->len(%d), fft->df(%f)\n", fft->len, fft->df);
+    putDraw2FftGraph(fft->pFft, fft->pSubFft, fft->len/2, fft->df);
+    receivedFftFftData();
     
     uint32_t delay_time = (uint32_t)(1000. / fft->df);
     MPLog("dt=%d\n", delay_time);
