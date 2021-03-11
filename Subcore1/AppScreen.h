@@ -110,6 +110,8 @@
 #define FFT_MODE_FFT_FFT  (2)
 #define FFT_MODE_WAV_WAV  (3)
 
+#define FRAME_WIDTH  FFT_GRAPH_HEIGHT
+#define FRAME_HEIGHT FFT_GRAPH_WIDTH
 
 #define SCR_TYPE_PAGE  (0)
 #define SCR_TYPE_MENU  (1)
@@ -165,6 +167,22 @@ void buildNextBackConnection(DynamicJsonDocument* doc);
 void putSensorValue(float acc, float vel, float dis);
 void putDraw2WayGraph(float* pWav0, int len0, float* pFft1, int len1, float df);
 void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
+void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
+                     , int gskip, int x, int y, int w, int h
+                     , uint16_t color, float df, int y_axis = 0
+                     , bool clr = true, bool draw = true);
+void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
+                  , int len, int dskip, int x, int y, int w, int h
+                  , uint16_t color, float df, int interval, double f_min_log
+                  , int y_axis = 0, bool clr = true, bool draw = true);
+void plottimescale(float df, int len, int head, bool redraw);
+void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
+void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);
 
+void putHorizonLine(int h, int color);
+void putItemCursor(int x, int y, int color);
+bool putText(int x, int y, String str, int color, int tsize);
 
+void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT], int16_t x0, int16_t y0
+                  , int16_t x1, int16_t y1, int16_t color);
 #endif /* __APP_SCREEN_HEADER_GURAD__ */

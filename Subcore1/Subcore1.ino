@@ -54,16 +54,6 @@ void loop() {
       requestSensorData();
     }
     
-  } else if (isFftFftAppRunning()) {
-
-    /* fft monitor application running */
-    /* check wheter the display process is running */
-    if (isFftFftDataReceived()) {
-      MPLog("Req FFT-FFT\n");  
-      sid = SID_FFT_MASK;
-      MP.Send(sid, data);
-      requestFftFftData();
-    }
   } else if (isFftWavAppRunning()) {
 
     /* fft monitor application running */
@@ -75,6 +65,16 @@ void loop() {
       requestFftWavData();
     }
 
+  } else if (isFftFftAppRunning()) {
+
+    /* fft monitor application running */
+    /* check wheter the display process is running */
+    if (isFftFftDataReceived()) {
+      MPLog("Req FFT-FFT\n");  
+      sid = SID_FFT_MASK;
+      MP.Send(sid, data);
+      requestFftFftData();
+    }
   } 
 
   /* data arrived from MainCore */

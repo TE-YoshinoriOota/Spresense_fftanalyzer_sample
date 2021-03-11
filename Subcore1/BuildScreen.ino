@@ -152,7 +152,6 @@ void requestFftFftData() {
 }
 
 
-
 /*** Force Halt ***/
 static void stopApplication() {
   bSensorAppRunning = false;

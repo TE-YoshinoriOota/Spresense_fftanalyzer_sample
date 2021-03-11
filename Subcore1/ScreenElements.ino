@@ -1,11 +1,9 @@
 //#define LCD_LINE_GRAPH
 //#define BUF_FILL_GRAPH
 //#define BUF_LINE_GRAPH
-#define BUF_LOG_LINE_GRAPH
+//#define BUF_LOG_LINE_GRAPH
 
 
-#define FRAME_WIDTH  FFT_GRAPH_HEIGHT
-#define FRAME_HEIGHT FFT_GRAPH_WIDTH
 static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
 
 
@@ -26,6 +24,7 @@ static bool     plotscale0_done = false;
 static bool     plotscale1_done = false;
 static int      fftamp = FFT_MIN_AMP;
 static int      wavamp = WAV_MIN_AMP;
+static bool     bLogDisplay = true;
 
 DynamicJsonDocument* doc;
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -325,23 +324,6 @@ void buildNextBackConnection(DynamicJsonDocument* doc) {
 }
 
 
-/* Graphic related helper functions */
-bool putText(int x, int y, String str, int color, int tsize) {
-  if ((x >= 0 && x < 320) 
-  &&  (y >= 0 && y < 240)
-  &&  (color >= 0x0000 && color <= 0xFFFF)) 
-  {
-    tft.setCursor(x, y);
-    tft.setTextColor(color);
-    tft.setTextSize(tsize);
-    tft.println(str);
-    Serial.println("Draw: " + str);
-    return true;
-  }
-  Serial.println("putText error");
-  return false;
-}
-
 void putSensorValue(float acc, float vel, float dis) {
   tft.fillRect(MON_ELEM_SIDE, MON_ELEM0_HEAD, MON_BOX_WIDTH-MON_MARGIN*2, MON_BOX_HEIGHT-MON_MARGIN*2+1, ILI9341_BLACK);
   tft.fillRect(MON_ELEM_SIDE, MON_ELEM1_HEAD, MON_BOX_WIDTH-MON_MARGIN*2, MON_BOX_HEIGHT-MON_MARGIN*2+1, ILI9341_BLACK);
@@ -359,16 +341,20 @@ void putSensorValue(float acc, float vel, float dis) {
 }
  
 void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
-
-  // static uint16_t frameBuf1[FFT_GRAPH_WIDTH][FFT_GRAPH_HIGHT];  
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
+  int i,j;
+  int interval;
+  double f_max;
+  float log_f_max;
+  double f_min_log;
+  
   pthread_mutex_lock(&mtx);
   int f_amp = fftamp;
   int w_amp = wavamp;
   pthread_mutex_unlock(&mtx);
 
-  MPLog("len0: %03d  len1: %03d  df: %1.4f\n", len0, len1, df); 
-  
+
+  /* draw upper graph */
+  MPLog("len0: %d  len1: %d  df: %1.4f\n", len0, len1, df); 
   int gskip, dskip;
   if (len0 < FFT_GRAPH_WIDTH) {
     gskip = FFT_GRAPH_WIDTH / len0; if (gskip == 0) gskip = 1;
@@ -377,62 +363,20 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
     gskip = 1;
     dskip = len0/FFT_GRAPH_WIDTH; if (dskip == 0) dskip = 1;
   }
-  int i,j;
-  for (i = 0, j = 0; i < len0; i += dskip, ++j) {
-    graphDataBuf[j] = pWav[i]*w_amp;
-  }
-  
-  MPLog("len0: %03d  gskip: %03d  dskip: %03d\n", len0, gskip, dskip); 
-#if defined(LCD_LINE_GRAPH)
-  tft.fillRect(FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, ILI9341_BLACK);
-  for (i = FFT_GRAPH_SIDE, j = 0; i < FFT_GRAPH_WIDTH-1; i += gskip, ++j) {
-    int center = FFT_GRAPH0_HEAD + FFT_GRAPH_HEIGHT/2;
-    int pixv0 = center-graphDataBuf[j];
-    if (pixv0 < FFT_GRAPH0_HEAD) pixv0 = FFT_GRAPH0_HEAD;
-    else if (pixv0 > FFT_GRAPH0_HEAD + FFT_GRAPH_HEIGHT) pixv0 = FFT_GRAPH0_HEAD + FFT_GRAPH_HEIGHT; 
-    int pixv1 = center-graphDataBuf[j+1];
-    if (pixv1 < FFT_GRAPH0_HEAD) pixv1 = FFT_GRAPH0_HEAD;
-    else if (pixv1 > FFT_GRAPH0_HEAD + FFT_GRAPH_HEIGHT) pixv1 = FFT_GRAPH0_HEAD + FFT_GRAPH_HEIGHT;
-    tft.drawLine(i, pixv0, i+gskip, pixv1, ILI9341_CYAN);
-  }
-#elif defined(BUF_FILL_GRAPH)
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-  for (int y = 0; y < FRAME_HEIGHT; ++y) {
-    int val = graphDataBuf[y] + FRAME_WIDTH/2;
-    if (val > FRAME_WIDTH) val = FRAME_WIDTH;
-    else if (val < 0)      val = 0;
-    if (val <= FRAME_WIDTH/2) {
-      for (int x = val; x <= FRAME_WIDTH/2; ++x) {
-        frameBuf[x][y] = ILI9341_CYAN;
-      }
-    } else if (val >= FRAME_WIDTH/2) {
-      for (int x = FRAME_WIDTH/2; x < val; ++x) {
-        frameBuf[x][y] = ILI9341_CYAN;
-      }
-    }
-  }
-  tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#elif defined(BUF_LINE_GRAPH) || defined(BUF_LOG_LINE_GRAPH)
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-  plotwavscale(df, len0, FFT_GRAPH0_HEAD, false);
-  for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
-    int val0 = graphDataBuf[y] + FRAME_WIDTH/2;
-    if (val0 > FRAME_WIDTH) val0 = FRAME_WIDTH;
-    else if (val0 < 0)      val0 = 0;
-    val0 = FRAME_WIDTH - val0;
-    int val1 = graphDataBuf[y+1] + FRAME_WIDTH/2;
-    if (val1 > FRAME_WIDTH) val1 = FRAME_WIDTH;
-    else if (val1 < 0)      val1 = 0;
-    val1 = FRAME_WIDTH - val1;
-    //writeLineToBuf(val0, y, val1, y+1, ILI9341_CYAN);
-    writeLineToBuf(frameBuf, val0, y, val1, y+1, ILI9341_CYAN);
-  }
-  tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#else
-  /* no graph */
-  putText(FFT_GRAPH_SIDE+10, FFT_GRAPH0_HEAD/2-20, "not available now", ILI9341_RED, 3);
-#endif
 
+  /* copy and scale the data to display */
+  memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  for (i = 0, j = 0; i < len0; i += dskip, ++j) {
+    graphDataBuf[j] = (int)(w_amp*pWav[i]);
+  }
+
+  MPLog("len0: %d  gskip: %d  dskip: %d\n", len0, gskip, dskip);
+  plottimescale(df, len0, FFT_GRAPH0_HEAD, false);
+  putBufLinearGraph(frameBuf, graphDataBuf, gskip, FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD
+                  , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, ILI9341_CYAN, df
+                  , FFT_GRAPH_HEIGHT/2, true);
+
+  /* draw lower graph */
   if (len1 < FFT_GRAPH_WIDTH) {
     gskip = FFT_GRAPH_WIDTH / len1; if (gskip == 0) gskip = 1;
     dskip = 1;
@@ -440,91 +384,48 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
     gskip = 1;
     dskip = len1/FFT_GRAPH_WIDTH; if (dskip == 0) dskip = 1;
   }
+
+  /* preparation for log graph */
+  if (bLogDisplay == true) {
+    f_max = df*len1;
+    log_f_max = log10(f_max)-1;
+    if (log_f_max > 1.0) interval = (FRAME_HEIGHT-1)/(int16_t)(log_f_max);
+    else interval = FRAME_HEIGHT;
+    f_min_log = log10(df)*interval; 
+  }
    
+  /* copy and scale the data to display */
+  memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
   for (i = 0, j = 0; i < len1; i += dskip, ++j) {
-    graphDataBuf[j] = pFft[i] * f_amp;
+    graphDataBuf[j] = (int)(f_amp*pFft[i]);
   }
-  
-#if defined(LCD_LINE_GRAPH)
-  tft.fillRect(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, ILI9341_BLACK);
-  MPLog("len1: %03d  gskip: %03d  dskip: %03d\n", len1, gskip, dskip); 
-  for (int i = FFT_GRAPH_SIDE, j = 0; i < FFT_GRAPH_WIDTH-1; i += gskip, ++j) {
-    int bottom = FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT;
-    int pixv0 = bottom-graphDataBuf[j];
-    if (pixv0 < FFT_GRAPH1_HEAD) pixv0 = FFT_GRAPH1_HEAD;
-    else if (pixv0 > FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT) pixv0 = FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT; 
-    int pixv1 = bottom-graphDataBuf[j+1];
-    if (pixv1 < FFT_GRAPH1_HEAD) pixv1 = FFT_GRAPH1_HEAD;
-    else if (pixv1 > FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT) pixv1 = FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT; 
-    tft.drawLine(i, pixv0, i+gskip, pixv1, ILI9341_MAGENTA);
+
+  if (bLogDisplay == false) {
+    MPLog("len1: %d  gskip: %d  dskip: %d\n", len1, gskip, dskip);
+    plotlinearscale(df, gskip, dskip, FFT_GRAPH1_HEAD, false);
+    putBufLinearGraph(frameBuf, graphDataBuf, gskip, FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                    , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, ILI9341_MAGENTA, df);
+  } else {
+    plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD, false);
+    putBufLogGraph(frameBuf, graphDataBuf, len1, dskip
+                 , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                 , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_MAGENTA, df, interval, f_min_log);
   }
-#elif defined(BUF_FILL_GRAPH)
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-  for (int y = 0; y < FRAME_HEIGHT; ++y) {
-    int val = graphDataBuf[y];
-    if (val > FRAME_WIDTH) val = FRAME_WIDTH;
-    else if (val < 0)      val = 0;
-    val = FRAME_WIDTH - val;
-    for (int x = FRAME_WIDTH-1; x >= val; --x) {
-      frameBuf[x][y] = ILI9341_MAGENTA;
-    }
-  }
-  tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#elif defined(BUF_LINE_GRAPH)
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-  plotlinearscale(df, dskip, FFT_GRAPH1_HEAD, false);
-  for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
-    int val0 = graphDataBuf[y];
-    if (val0 > FRAME_WIDTH) val0 = FRAME_WIDTH;
-    else if (val0 < 0)      val0 = 0;
-    val0 = FRAME_WIDTH - val0;
-    int val1 = graphDataBuf[y+1];
-    if (val1 > FRAME_WIDTH) val1 = FRAME_WIDTH;
-    else if (val1 < 0)      val1 = 0;
-    val1 = FRAME_WIDTH - val1;
-    writeLineToBuf(frameBuf, val0, y, val1, y+1, ILI9341_MAGENTA);
-  }
-  tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#elif defined(BUF_LOG_LINE_GRAPH) 
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-  int interval;
-  double f_max = df*len0/2.56;
-  float log_f_max = log10(f_max)-1;
-  if (log_f_max > 1.0) interval = (FRAME_HEIGHT-1)/(int16_t)(log_f_max);
-  else interval = FRAME_HEIGHT;
-  double f_min_log = log10(df)*interval; 
-  plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD, false);
-  for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
-    int val0 = graphDataBuf[y];
-    if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
-    else if (val0 < 0)      val0 = 0;
-    val0 = FRAME_WIDTH - val0;
-    int val1 = graphDataBuf[y+1];
-    if (val1 >= FRAME_WIDTH) val1 = FRAME_WIDTH-1;
-    else if (val1 < 0)      val1 = 0;
-    val1 = FRAME_WIDTH - val1;
-    
-    /* calculate log cordination */
-    int iy0 = log10(y*df*dskip)*interval - f_min_log;     if (iy0 < 0) iy0 = 0;
-    int iy1 = log10((y+1)*df*dskip)*interval - f_min_log; if (iy1 < 0) iy1 = 0;
-    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, ILI9341_MAGENTA);
-  }
-  tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#else
-  /* no graph */
-  putText(FFT_GRAPH_SIDE+10, FFT_GRAPH1_HEAD/2-20, "not available now", ILI9341_RED, 3);
-#endif
 }
 
-
 void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
+  int i, j;
+  int interval;
+  double f_max;
+  float log_f_max;
+  double f_min_log;
+  
   pthread_mutex_lock(&mtx);
   int f_amp = fftamp;
   pthread_mutex_unlock(&mtx);
 
   int gskip, dskip;
-  // static uint16_t frameBuf1[FFT_GRAPH_WIDTH][FFT_GRAPH_HIGHT];  
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
   if (len < FFT_GRAPH_WIDTH) {
     gskip = FFT_GRAPH_WIDTH / len; if (gskip == 0) gskip = 1;
     dskip = 1;
@@ -532,283 +433,55 @@ void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     gskip = 1;
     dskip = len/FFT_GRAPH_WIDTH; if (dskip == 0) dskip = 1;
   }
+  MPLog("len: %d  gskip: %d  dskip: %d\n", len, gskip, dskip);
 
-  /* drawing graph loop */
-  float* p_fft = pFft;
-  int head = FFT_GRAPH0_HEAD;
-  uint16_t color = ILI9341_CYAN;
-  bool redraw = true;
-  int i, j;
-  for (int r = 0; r < 3; ++r) {
-    MPLog("Rendering %d\n", r);
-    if (r == 1) {
-      p_fft = pSubFft;
-      head  = FFT_GRAPH1_HEAD;
-      color = ILI9341_MAGENTA;
-      redraw = false;
-    } else if (r == 2) {
-      for (int i = 0; i < len; ++i) {
-        pSubFft[i] = abs(pFft[i] - pSubFft[i]);
-      }
-      p_fft = pSubFft;
-      color = ILI9341_RED;
-    }
-     
-    for (i = 0, j = 0; i < len; i += dskip, ++j) {
-      graphDataBuf[j] = p_fft[i] * f_amp;
-    }
-    
-#if defined(BUF_FILL_GRAPH)
-    memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-    for (int y = 0; y < FRAME_HEIGHT; ++y) {
-      int val = graphDataBuf[y];
-      if (val > FRAME_WIDTH) val = FRAME_WIDTH;
-      else if (val < 0)      val = 0;
-      val = FRAME_WIDTH - val;
-      for (int x = FRAME_WIDTH-1; x >= val; --x) {
-        frameBuf[x][y] = ILI9341_MAGENTA;
-      }
-    }
-    tft.drawRGBBitmap(FFT_GRAPH_SIDE, head, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#elif defined(BUF_LINE_GRAPH)
-    memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-    plotlinearscale(df, dskip, head, redraw);
-    for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
-      int val0 = graphDataBuf[y];
-      if (val0 > FRAME_WIDTH) val0 = FRAME_WIDTH;
-      else if (val0 < 0)      val0 = 0;
-      val0 = FRAME_WIDTH - val0;
-      int val1 = graphDataBuf[y+1];
-      if (val1 > FRAME_WIDTH) val1 = FRAME_WIDTH;
-      else if (val1 < 0)      val1 = 0;
-      val1 = FRAME_WIDTH - val1;
-      writeLineToBuf(frameBuf, val0, y, val1, y+1, color);
-    }
-    tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
-#elif defined(BUF_LOG_LINE_GRAPH)
-    if (r != 2) {  
-      memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
-    }
-    int interval;
-    double f_max = df*len;
-    float log_f_max = log10(f_max)-1;
+  if (bLogDisplay == true) {
+    f_max = df*len;
+    log_f_max = log10(f_max)-1;
     if (log_f_max > 1.0) interval = (FRAME_HEIGHT-1)/(int16_t)(log_f_max);
     else interval = FRAME_HEIGHT;
-    double f_min_log = log10(df)*interval; 
-    plotlogscale(interval, df, f_min_log, head, redraw);
-
-    for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
-      int val0 = graphDataBuf[y];
-      if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
-      else if (val0 < 0)      val0 = 0;
-      val0 = FRAME_WIDTH - val0;
-      int val1 = graphDataBuf[y+1];
-      if (val1 >= FRAME_WIDTH) val1 = FRAME_WIDTH-1;
-      else if (val1 < 0)      val1 = 0;
-      val1 = FRAME_WIDTH - val1;
-      
-      /* calculate log cordination */
-      int iy0 = log10(y*df*dskip)*interval - f_min_log;     if (iy0 < 0) iy0 = 0;
-      int iy1 = log10((y+1)*df*dskip)*interval - f_min_log; if (iy1 < 0) iy1 = 0;
-      writeLineToBuf(frameBuf, val0, iy0, val1, iy1, color);
-    }
-    if (r != 1)
-      tft.drawRGBBitmap(FFT_GRAPH_SIDE, head, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
+    f_min_log = log10(df)*interval; 
+  }
    
-#else
-    /* no graph */
-    putText(FFT_GRAPH_SIDE+10, head/2-20, "not available now", ILI9341_RED, 3);
-#endif
-  }
-}
-
-
-void putHorizonLine(int h, int color) {
-  tft.drawLine(0, h, SCREEN_WIDTH-1, h, color);
-}
-
-void putItemCursor(int x, int y, int color) {
-  tft.fillRect(x, y, MENU_CUR_SIZE, MENU_CUR_SIZE, color);
-}
-
-void plotwavscale(float df, int len, int head, bool redraw) {
-  if (plotscale1_done == true) return;
-  float srate = df*len; // sampling rate
-  float dt = 1/srate*1000;  // misec time for capturing 1 sample
-  float max_time = dt*len;
-  bool bMark = false;
-  MPLog("max_time: %f df: %f srate: %f, len: %d\n", max_time, df, srate, len);
-  
-  /* 
-   * minimum case: frame rate 192000Hz, sample  256, time  1.3 msec
-   * maxmum  case: frame rate  16000Hz, sample 4096, time  256 msec
-   */
-  float dtime;
-  if (max_time < 2.0) dtime        = 0.10;   // 1.3 msec
-  else if (max_time < 5.0) dtime   = 0.25;   // 2.7 msec
-  else if (max_time < 10.0) dtime  = 0.50;   // 5.3 msec
-  else if (max_time < 15.0) dtime  = 1.00;   // 10.7 msec
-  else if (max_time < 30.0) dtime  = 2.00;   // 21.3 msec
-  else if (max_time < 100.0) dtime = 5.00;   // 32, 42.6, 64, 85.3 msec
-  else if (max_time < 200.0) dtime = 10.0;   // 125.9  msec
-  else dtime = 20.0;                         // 256.0  msec
-  
-  for (float n = 0; n < max_time; n += dtime) {
-    uint16_t line = (double)(n)/max_time*FFT_GRAPH_WIDTH;
-    tft.drawLine(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+1
-               , FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+3
-               , ILI9341_YELLOW);  
-    if (n == 0) {
-      bMark = true;
-    } else if (max_time < 2.0) { /* 1.3 msec */
-      if (n == 0.5 || n == 1.0) bMark = true;
-    } else if (max_time < 5.0) { /* 2.7 msec */
-      if (n == 1.0 || n == 2.0) bMark = true;      
-    } else if (max_time < 10.0) { /* 5.3 msec */
-      if (n == 2.5 || n == 5.0) bMark = true;
-    } else if (max_time < 15.0) { /* 10.7 msec */
-      if (n == 2.5 || n == 5.0 || n == 7.5 || n == 10.0) bMark = true;
-    } else if (max_time < 30.0) { /* 21.3 msec */
-      if (n == 10.0 || n == 20.0) bMark = true;
-    } else if (max_time < 100.0) { /* 32., 42.6, 64.0, 85.3 msec */
-      if (n == 20.0 || n == 40.0 || n == 60.0 || n == 80.0) bMark = true;
-    } else if (max_time < 200.0) { /* 127.9 msec */
-      if (n == 50.0  || n == 100.0 || n == max_time-dtime) bMark = true;
-    } else { /* 256.0 msec */
-      if (n == 100.0 || n == 200.0 || n == max_time-dtime) bMark = true;
-    }
-    if (bMark) {
-      String sline = String(n,1) + String("msec");
-      putText(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+4
-             , sline, ILI9341_YELLOW, 1);
-      bMark = false;
-    }
-  } 
-  if (redraw == false)
-    plotscale0_done = true;  
-  
-  
-}
-
-void plotlinearscale(float df, int skip, int head, bool redraw) {
-  if (plotscale1_done == true) return;
-  uint32_t max_freq = df*skip*FFT_GRAPH_WIDTH;
-  bool bMark = false;
-  for (int32_t n = 0; n < max_freq; n += 1000) {
-    uint16_t line = (double)(n)/max_freq*FFT_GRAPH_WIDTH;
-    tft.drawLine(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+1
-               , FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+3
-               , ILI9341_YELLOW);  
-    if (n == 0) {
-      bMark = true;
-    } else if (max_freq < 10000) { /* in case of 16kHz */
-      if (n == 1000 || n == 3000 || n == 5000 || n == max_freq-1000) bMark = true;
-    } else if (max_freq < 30000) { /* in case of 48kHz */
-      if (n == 5000 || n == 10000 || n == 15000 || n == 20000) bMark = true;      
-    } else if (max_freq < 100000) { /* in case of 192kHz */
-      if (n == 5000 || n == 25000 || n == 50000 || n == 75000 || n == max_freq-1000) bMark = true;
-    }
-    if (bMark) {
-      String sline = String(n/1000) + String("kHz");
-      putText(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+4
-             , sline, ILI9341_YELLOW, 1);
-      bMark = false;
-    }
-  } 
-  if (redraw == false)
-    plotscale1_done = true;
-}
-
-
-void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw) {
-  if (plotscale1_done == true) return;
-  /* graph scale */
-  /* put text of minimum frequency */
-  String smark = String(df, 0) + String("Hz");
-  putText(FFT_GRAPH_SIDE, head+FFT_GRAPH_HEIGHT+4
-         , smark, ILI9341_YELLOW, 1);  
-         
-  for (int32_t s = 1; s < 1000000; s *= 10) {
-    /* put scale number on a graph */
-    float mark = (log10(s))*interval - f_min_log;
-    if (mark > 0.0) {
-      if (s > 100) {
-        smark = String(s/1000) + String("kHz");
-      } else {
-        smark = String(s) + String("Hz");
-      }
-      putText(FFT_GRAPH_SIDE + mark, head+FFT_GRAPH_HEIGHT+4
-             , smark, ILI9341_YELLOW, 1);
-    }
-    
-    /* put scale on a graph */
-    for (int32_t n = 1*s; n < 10*s; n += s) {
-      int32_t logn = log10(n)*interval - f_min_log;
-      if (logn >= FFT_GRAPH_WIDTH) return;
-      if (logn >= 0.0) {
-        tft.drawLine(FFT_GRAPH_SIDE + logn, head+FFT_GRAPH_HEIGHT+1
-                   , FFT_GRAPH_SIDE + logn, head+FFT_GRAPH_HEIGHT+3
-                   , ILI9341_YELLOW);
-      } 
-    }
-  }
-  if (redraw == false)
-    plotscale1_done = true;
-}
-
-
-#ifndef _swap_int16_t
-#define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
-#endif
-
-/* Bresenham's line algorithm */
-void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT], int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t color) {
-
-  /* limitter */
-  if (x0 < 0) x0 = 0;
-  if (x1 < 0) x1 = 0;
-  if (x0 > FRAME_WIDTH-1) x0 = FRAME_WIDTH-1;
-  if (x1 > FRAME_WIDTH-1) x1 = FRAME_WIDTH-1;
-  if (y0 < 0) y0 = 0;
-  if (y1 < 0) y1 = 0;
-  if (y0 > FRAME_HEIGHT-1) y0 = FRAME_HEIGHT-1;
-  if (y1 > FRAME_HEIGHT-1) y0 = FRAME_HEIGHT-1;
-
-  int16_t steep = abs(y1 - y0) > abs(x1 - x0);
-  if (steep) {
-    _swap_int16_t(x0, y0);
-    _swap_int16_t(x1, y1);
+  /* copy and scale the ch1 data to display */
+  memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  for (i = 0, j = 0; i < len; i += dskip, ++j) {
+    graphDataBuf[j] = (int)(f_amp*pFft[i]);
   }
 
-  if (x0 > x1) {
-    _swap_int16_t(x0, x1);
-    _swap_int16_t(y0, y1);
-  }
-
-  int16_t dx, dy;
-  dx = x1 - x0;
-  dy = abs(y1 - y0);
-
-  int16_t err = dx / 2;
-  int16_t ystep;
-
-  if (y0 < y1) {
-    ystep = 1;
+  /* draw upper graph */
+  if (bLogDisplay == false) {
+    plotlinearscale(df, gskip, dskip, FFT_GRAPH0_HEAD, true);
+    putBufLinearGraph(frameBuf, graphDataBuf, gskip
+                    , FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD
+                    , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                    , ILI9341_CYAN, df);
   } else {
-    ystep = -1;
+    plotlogscale(interval, df, f_min_log, FFT_GRAPH0_HEAD, true);
+    putBufLogGraph(frameBuf, graphDataBuf, len, dskip
+                 , FFT_GRAPH_SIDE, FFT_GRAPH0_HEAD
+                 , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_CYAN, df, interval, f_min_log);
   }
 
-  for (; x0 <= x1; x0++) {
-    if (steep) {
-      frameBuf[y0][x0] = color;
-      fBuf[y0][x0] = color;
-    } else {
-      frameBuf[x0][y0] = color;
-    }
-    err -= dy;
-    if (err < 0) {
-      y0 += ystep;
-      err += dx;
-    }
+  /* copy and scale the ch2 data to display */
+  memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  for (i = 0, j = 0; i < len; i += dskip, ++j) {
+    graphDataBuf[j] = (int)(f_amp*pSubFft[i]);
+  }
+
+  /* draw lower graph */
+  if (bLogDisplay == false) {
+    plotlinearscale(df, gskip, dskip, FFT_GRAPH1_HEAD);
+    putBufLinearGraph(frameBuf, graphDataBuf, gskip
+                    , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                    , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                    , ILI9341_MAGENTA, df);
+  } else {
+    plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD);
+    putBufLogGraph(frameBuf, graphDataBuf, len, dskip
+                 , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                 , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_MAGENTA, df, interval, f_min_log);
   }
 }
