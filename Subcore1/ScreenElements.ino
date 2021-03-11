@@ -487,8 +487,8 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df, in
   float log_f_max = log10(f_max)-1;
   if (log_f_max > 1.0) interval = (FRAME_HEIGHT-1)/(int16_t)(log_f_max);
   else interval = FRAME_HEIGHT;
-  double f_min = log10(df)*interval;
-  plotlogscale(interval, f_min);
+  double f_min_log = log10(df)*interval; 
+  plotlogscale(interval, df, f_min_log);
   for (int y = 0; y < FRAME_HEIGHT-1; ++y) {
     int val0 = graphDataBuf[y];
     if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
@@ -500,8 +500,8 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df, in
     val1 = FRAME_WIDTH - val1;
     
     /* calculate log cordination */
-    int iy0 = log10(y*df)*interval - f_min;     if (iy0 < 0) iy0 = 0;
-    int iy1 = log10((y+1)*df)*interval - f_min; if (iy1 < 0) iy1 = 0;
+    int iy0 = log10(y*df*dskip)*interval - f_min_log;     if (iy0 < 0) iy0 = 0;
+    int iy1 = log10((y+1)*df*dskip)*interval - f_min_log; if (iy1 < 0) iy1 = 0;
     writeLineToBuf(frameBuf, val0, iy0, val1, iy1, ILI9341_MAGENTA);
   }
   tft.drawRGBBitmap(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD, (uint16_t*)frameBuf, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT);
@@ -586,8 +586,9 @@ void plotlinearscale(float df, int skip) {
     tft.drawLine(FFT_GRAPH_SIDE + line, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+1
                , FFT_GRAPH_SIDE + line, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+3
                , ILI9341_YELLOW);  
-    if (n == 0) continue;
-    if (max_freq < 10000) { /* in case of 16kHz */
+    if (n == 0) {
+      bMark = true;
+    } else if (max_freq < 10000) { /* in case of 16kHz */
       if (n == 1000 || n == 3000 || n == 5000 || n == max_freq-1000) bMark = true;
     } else if (max_freq < 30000) { /* in case of 48kHz */
       if (n == 5000 || n == 10000 || n == 15000 || n == 20000) bMark = true;      
@@ -605,13 +606,18 @@ void plotlinearscale(float df, int skip) {
 }
 
 
-void plotlogscale(int interval, double f_min_log) {
+void plotlogscale(int interval, float df, double f_min_log) {
   if (plotscale1_done == true) return;
   /* graph scale */
+  /* put text of minimum frequency */
+  String smark = String(df, 0) + String("Hz");
+  putText(FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+4
+         , smark, ILI9341_YELLOW, 1);  
+         
   for (int32_t s = 1; s < 1000000; s *= 10) {
+    /* put scale number on a graph */
     float mark = (log10(s))*interval - f_min_log;
     if (mark > 0.0) {
-      String smark;
       if (s > 100) {
         smark = String(s/1000) + String("kHz");
       } else {
@@ -620,10 +626,12 @@ void plotlogscale(int interval, double f_min_log) {
       putText(FFT_GRAPH_SIDE + mark, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+4
              , smark, ILI9341_YELLOW, 1);
     }
+    
+    /* put scale on a graph */
     for (int32_t n = 1*s; n < 10*s; n += s) {
       int32_t logn = log10(n)*interval - f_min_log;
       if (logn >= FFT_GRAPH_WIDTH) return;
-      if (logn >= 0.0 && logn >= 0.0) {
+      if (logn >= 0.0) {
         tft.drawLine(FFT_GRAPH_SIDE + logn, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+1
                    , FFT_GRAPH_SIDE + logn, FFT_GRAPH1_HEAD+FFT_GRAPH_HEIGHT+3
                    , ILI9341_YELLOW);
@@ -641,8 +649,15 @@ void plotlogscale(int interval, double f_min_log) {
 /* Bresenham's line algorithm */
 void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT], int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t color) {
 
-  if (x0 < 0 || x0 > FRAME_WIDTH-1  || x1 < 0 || x1 > FRAME_WIDTH-1) return;
-  if (y0 < 0 || y0 > FRAME_HEIGHT-1 || y1 < 0 || y1 > FRAME_HEIGHT-1) return;
+  /* limitter */
+  if (x0 < 0) x0 = 0;
+  if (x1 < 0) x1 = 0;
+  if (x0 > FRAME_WIDTH-1) x0 = FRAME_WIDTH-1;
+  if (x1 > FRAME_WIDTH-1) x1 = FRAME_WIDTH-1;
+  if (y0 < 0) y0 = 0;
+  if (y1 < 0) y1 = 0;
+  if (y0 > FRAME_HEIGHT-1) y0 = FRAME_HEIGHT-1;
+  if (y1 > FRAME_HEIGHT-1) y0 = FRAME_HEIGHT-1;
 
   int16_t steep = abs(y1 - y0) > abs(x1 - x0);
   if (steep) {
