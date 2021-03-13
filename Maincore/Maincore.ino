@@ -1,5 +1,7 @@
 #include "AppSystem.h"
 
+
+/* setup function starts from here */
 void setup() {
   int ret;
   
@@ -12,23 +14,23 @@ void setup() {
   while (!Serial) {}
 
   while (!theSD.begin()) {
-    Serial.println("Insert SD card");
+    Serial.println("[Main] Insert SD card");
     error_notifier(FILE_ERROR);
   }
   
   ret = MP.begin(SUBCORE);
   if (ret < 0) {
-    Serial.println("MP.begin error: " + String(ret));
+    Serial.println("[Main] MP.begin error: " + String(ret));
     while(true) { 
       error_notifier(MP_ERROR); 
     }
   }
   
   djson = updateJson(djson, NULL);
-  int8_t sid = SID_DOC_MASK;
+  int8_t sid = SID_REQ_JSONDOC;
   ret = MP.Send(sid, djson, SUBCORE);
   if (ret < 0) {
-    Serial.println("MP.Send error: " + String(ret));
+    Serial.println("[Main] MP.Send error: " + String(ret));
     while(true) { 
       error_notifier(MP_ERROR); 
     }    
@@ -36,6 +38,8 @@ void setup() {
   MP.RecvTimeout(MP_RECV_POLLING);
 }
 
+
+/* main loop function starts from here */
 void loop() {
   int ret;
   int8_t sid = 0;
@@ -43,14 +47,14 @@ void loop() {
     usleep(1); // yield the process to SignalProcessing
     return;
   }
-  printf("[Main] 0x%02x\n", sid);
+  Serial.println("[Main] sid = " + String(sid));
 
-  if (sid & SID_DOC_MASK) {
+  if (sid == SID_REQ_JSONDOC) {
   /* request to change page from Subcore */
 
     /* stop the signal processing */
     bProcessing = false;
-    Serial.println("Stop Thread");
+    Serial.println("[Main] Stop Thread");
     
     /* wait for the thread to stopp */
     while (!bThreadStopped) { 
@@ -76,90 +80,128 @@ void loop() {
     /* send the json document to change the page on LCD */
     ret = MP.Send(sid, djson, SUBCORE);
     if (ret < 0) {
-      Serial.println("MP.Send error: " + String(ret));
+      Serial.println("[Main] MP.Send error: " + String(ret));
       while(true) { 
         error_notifier(MP_ERROR); 
       }    
-    }      
-
-  } else if (sid > SID_DOC_MASK) {
-    /* request to launch sensor applications */
-    if (bProcessing == false) {
-      Serial.println("init_processing");
-      readSysprop(sid, sjson);     
-      bProcessing = true;
-      init_processing(sid, sjson);
-      bSignalProcessingStarted = true;
     }
-
-    if (sid & SID_DAT_MASK) {
-    /* request data to monitor sensors */
-      
-      calc_sensor_data(&sData);
-
-      struct SensorData sdata;
-      memcpy(&sdata, &sData, sizeof(sData));
-
-      /* send the data to update the number on LCD display */
-      sid = SID_DAT_MASK;
-      ret = MP.Send(sid, &sdata, SUBCORE);
-      if (ret < 0) {
-        Serial.println("MP.Send error: " + String(ret));
-        while(true) {
-          error_notifier(MP_ERROR);
-        }    
-      }      
-    } else if ((sid & (SID_FFT_MASK | SID_WAV_MASK)) == (SID_FFT_MASK | SID_WAV_MASK)) {
-    /* request calculate fft data */
-
-      calc_fft_data(&fftWavData);
-
-      Serial.println("Send fft-wav data to SUBCORE");
-
-      /* send the wan and fft data to update the graph on LCD display */     
-      sid = (SID_FFT_MASK | SID_WAV_MASK);
-      ret = MP.Send(sid, &fftWavData, SUBCORE);
-      if (ret < 0) {
-        Serial.println("MP.Send error: " + String(ret));
-        while (true) { 
-          error_notifier(MP_ERROR); 
-        }    
-      }      
-    } else if ((sid & SID_FFT_MASK) == (SID_FFT_MASK)) {
-    /* request calculate double fft data */
-
-      calc_fft2_data(&fft2Data);
-
-      Serial.println("Send fft-fft data to SUBCORE");
-
-      /* send the wan and fft data to update the graph on LCD display */     
-      sid = SID_FFT_MASK;
-      ret = MP.Send(sid, &fft2Data, SUBCORE);
-      if (ret < 0) {
-        Serial.println("MP.Send error: " + String(ret));
-        while (true) {
-          error_notifier(MP_ERROR); 
-        }    
-      }
-            
-    } else if ((sid & SID_WAV_MASK) == (SID_WAV_MASK)) {
-    /* request calculate double wav data */   
-
-      get_wav2_data(&wav2Data);
-
-      Serial.println("Send wav-wav data to SUBCORE");
-      
-      /* send the wan and fft data to update the graph on LCD display */     
-      sid = SID_WAV_MASK;
-      ret = MP.Send(sid, &wav2Data, SUBCORE);
-      if (ret < 0) {
-        Serial.println("MP.Send error: " + String(ret));
-        while(true) { 
-          error_notifier(MP_ERROR); 
-        }    
-      }
-      
-    }
+    usleep(1); // yield 
+    return;
+  } 
+  
+  /* need signal processing, starts the sub process */
+  /* request to launch the process, if it not started */
+  if (bProcessing == false) {
+    Serial.println("[Main] init_processing");
+    readSysprop(sid, sjson);     
+    bProcessing = true;
+    init_processing(sid, sjson);
+    bSignalProcessingStarted = true;
+    usleep(MAX_USTIME_FOR_CAPTURING); // yield the process to SignalProcessing
   }
-  usleep(1); // yield 
+    
+  /* request data to monitor sensors */
+  if (sid == SID_REQ_MONDATA) {
+
+    Serial.println("[Main] Calculating sensor data");
+    calc_sensor_data(&sData);
+
+    struct SensorData sdata;
+    memcpy(&sdata, &sData, sizeof(sData));
+
+    Serial.println("[Main] Send monitor data to Subcore");
+
+    /* send the data to update the number on LCD display */
+    ret = MP.Send(sid, &sdata, SUBCORE);
+    if (ret < 0) {
+      Serial.println("[Main] MP.Send error: " + String(ret));
+      while(true) {
+        error_notifier(MP_ERROR);
+      }    
+    }
+    usleep(1);
+    return;      
+  } 
+  
+  /* request calculate fft data */  
+  if (sid == SID_REQ_WAV_FFT) {
+
+    Serial.println("[Main] Calculating fft-wav data");
+    calc_fft_data(&fftWavData);
+
+    Serial.println("[Main] Send fft-wav data to SUBCORE");
+
+    /* send the wan and fft data to update the graph on LCD display */     
+    ret = MP.Send(sid, &fftWavData, SUBCORE);
+    if (ret < 0) {
+      Serial.println("[Main] MP.Send error: " + String(ret));
+      while (true) { 
+        error_notifier(MP_ERROR); 
+      }    
+    } 
+    usleep(1);
+    return; 
+  } 
+  
+  /* request calculate double fft data */
+  if (sid == SID_REQ_FFT_FFT) {
+
+    Serial.println("[Main] Calculating fft-fft data");
+    calc_fft2_data(&fft2Data);
+
+    Serial.println("[Main] Send fft-fft data to SUBCORE");
+
+    /* send the wan and fft data to update the graph on LCD display */     
+    ret = MP.Send(sid, &fft2Data, SUBCORE);
+    if (ret < 0) {
+      Serial.println("[Main] MP.Send error: " + String(ret));
+      while (true) {
+        error_notifier(MP_ERROR); 
+      }    
+    }
+    usleep(1);
+    return;        
+  } 
+  
+  /* request calculate double wav data */   
+  if (sid == SID_REQ_WAV_WAV) {
+
+    Serial.println("[Main] Collecting wav-wav data");
+    get_wav2_data(&wav2Data);
+
+    Serial.println("[Main] Send wav-wav data to SUBCORE");
+    
+    /* send the wan and fft data to update the graph on LCD display */     
+    ret = MP.Send(sid, &wav2Data, SUBCORE);
+    if (ret < 0) {
+      Serial.println("[Main] MP.Send error: " + String(ret));
+      while(true) { 
+        error_notifier(MP_ERROR); 
+      }    
+    }
+    usleep(1);
+    return;        
+  } 
+  
+  /* request calculate double wav data */   
+  if (sid == SID_REQ_RAW_FIL) {
+
+    Serial.println("[Main] Collecting filtered wav data");
+    get_rawfil_data(&wav2Data);
+
+    Serial.println("[Main] Send raw-filtered data to SUBCORE");
+    
+    /* send the wan and fft data to update the graph on LCD display */     
+    ret = MP.Send(sid, &wav2Data, SUBCORE);
+    if (ret < 0) {
+      Serial.println("[Main] MP.Send error: " + String(ret));
+      while(true) { 
+        error_notifier(MP_ERROR); 
+      }    
+    }
+    usleep(1);
+    return;      
+  }
+  
+  usleep(1); // yield the process to SignalProcessing
 }

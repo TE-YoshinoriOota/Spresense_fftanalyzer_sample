@@ -11,6 +11,8 @@
 #define __FPU_PRESENT 1U
 #include <cmsis/arm_math.h>
 #include <RingBuff.h>
+#include "FFTClassKai.h"
+#include "IIRKai.h"
 
 #define LED0_MASK 0x01
 #define LED1_MASK 0x02
@@ -22,21 +24,23 @@
 #define MP_ERROR    (0x04)   /* LED2 Blink */
 #define MEM_ERROR   (0x03)   /* LED0 & LED2 Blink */
 
-#define SID_SIG_MASK 0x10
-#define SID_END_MASK 0x20
-#define SID_ERR_MASK 0x40
+/* sid definitions */
+#define SID_REQ_JSONDOC  (0x01)
+#define SID_REQ_MONDATA  (0x02)
+#define SID_REQ_WAV_WAV  (0x03)
+#define SID_REQ_RAW_FIL  (0x04)
+#define SID_REQ_WAV_FFT  (0x10)
+#define SID_REQ_FFT_FFT  (0x20)
 
-#define SID_DOC_MASK 0x01
-#define SID_DAT_MASK 0x02
-#define SID_WAV_MASK 0x04
-#define SID_FFT_MASK 0x08
-
+/* difinitions for application */
 #define SUBCORE (1)
 #define JSON_BUFFER    (1024)
 
 #define MAX_FIFO_BUFF  (4096)
 #define MAX_CHANNEL    (4)
 
+/* maximum capturing time is 1/16000 x 4096 */
+#define MAX_USTIME_FOR_CAPTURING (256000)
 
 struct Response {
   char label[5];
@@ -82,26 +86,31 @@ DynamicJsonDocument *djson = new DynamicJsonDocument(JSON_BUFFER);
 DynamicJsonDocument *sjson = new DynamicJsonDocument(JSON_BUFFER);
 
 /* For Menu Framework */
-struct Response *res = NULL;
+struct Response* res = NULL;
 struct SensorData sData;
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
 /* For Singal Processing */
 AudioClass *theAudio = AudioClass::getInstance();
-static char  *pRaw = NULL;
-static float *pWav = NULL;
-static float *pSubWav = NULL;
+static char*  pRaw = NULL;
+static float* pWav = NULL;
+static float* pSubWav = NULL;
 static bool bProcessing = false;
 static bool bThreadStopped = true;
 static bool bSignalProcessingStarted = false;
 
+/* For Filtering process */
+static IIRClassKai* lpf = NULL;
+static IIRClassKai* hpf = NULL;
+
 /* For FFT processing */
-RingBuff *ringbuff = NULL;
-static float *pTmp = NULL;
-static float *pFft = NULL;
-static float *pSubFft = NULL;
+RingBuff* ringbuff = NULL;
+static float* pTmp = NULL;
+static float* pFft = NULL;
+static float* pSubFft = NULL;
 static struct FftWavData fftWavData;
 static struct FftFftData fft2Data;
+static FFTClassKai *fft = NULL;
 
 /* For WAV processing */
 static struct WavWavData wav2Data;
@@ -121,19 +130,19 @@ static int  g_hpf;
 static uint16_t buffer_size;
 
 /* JsonProcessor functions */
-void update_system_properties(int8_t sid, DynamicJsonDocument *sys);
-void readSysprop(int8_t sid, DynamicJsonDocument *doc);
-void updateSysprop(int8_t sid, DynamicJsonDocument *doc, struct Response *res);
-DynamicJsonDocument* updateJson(DynamicJsonDocument *doc, struct Response *res);
+void update_system_properties(int8_t sid, DynamicJsonDocument* sys);
+void readSysprop(int8_t sid, DynamicJsonDocument* doc);
+void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res);
+DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res);
 
 /* SignalProcessing functions */
 void error_notifier(int n);
-void init_processing(int8_t sid, DynamicJsonDocument *sys);
+void init_processing(int8_t sid, DynamicJsonDocument* sys);
 void finish_processing();
-void calc_sensor_data(struct SensorData *sdata);
-void calc_fft_data(struct FftWavData *fdata);
-void calc_fft2_data(struct FftFftData *fdata);
-void get_wav2_data(struct WavWavData *wdata);
+void calc_sensor_data(struct SensorData* sdata);
+void calc_fft_data(struct FftWavData* fdata);
+void calc_fft2_data(struct FftFftData* fdata);
+void get_wav2_data(struct WavWavData* wdata);
 
 
 

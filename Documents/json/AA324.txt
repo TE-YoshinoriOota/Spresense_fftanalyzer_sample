@@ -11,7 +11,7 @@
   "ch_disp":1,
   "ch0":0,
   "back":323,
-  "next0":355,
+  "next0":385,
   "res_label":"hpf",
   "B0":"DOWN",
   "B1":"  UP",

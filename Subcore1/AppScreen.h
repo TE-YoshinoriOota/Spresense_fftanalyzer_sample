@@ -34,7 +34,7 @@
 #define SCR_TYPE_WVFT  (5)
 #define SCR_TYPE_FFT2  (6)
 #define SCR_TYPE_ORBT  (7)
-
+#define SCR_TYPE_FLTR  (8)
 
 /* TITLE COORDINATIONS */
 #define TITLE_DECO_LINE (35)
@@ -141,7 +141,7 @@
 #define WAV_AMP_STEP  100
 #define FFT_MAX_AMP   1000
 #define FFT_MIN_AMP   1
-#define FFT_AMP_STEP  1
+#define FFT_AMP_STEP  10
 
 #define FFT_MODE_WAV_FFT  (1)
 #define FFT_MODE_FFT_FFT  (2)
@@ -161,10 +161,19 @@
 
 
 /* MULTICORE MESSAGE ID */
-#define SID_DOC_MASK (0x01)
-#define SID_DAT_MASK (0x02)
-#define SID_WAV_MASK (0x04)
-#define SID_FFT_MASK (0x08)
+/* 0x10 - 0x70 is reserved for FFT applications */
+#define SID_REQ_JSONDOC  (0x01)
+#define SID_REQ_MONDATA  (0x02)
+#define SID_REQ_WAV_WAV  (0x03)
+#define SID_REQ_RAW_FIL  (0x04)
+#define SID_REQ_WAV_FFT  (0x10)
+#define SID_REQ_FFT_FFT  (0x20)
+
+#define APP_ID_MONDATA  SID_REQ_MONDATA
+#define APP_ID_WAV_FFT  SID_REQ_WAV_FFT
+#define APP_ID_FFT_FFT  SID_REQ_FFT_FFT
+#define APP_ID_WAV_WAV  SID_REQ_WAV_WAV
+#define APP_ID_RAW_FIL  SID_REQ_RAW_FIL
 
 
 /* BUTTON PINS */
@@ -242,54 +251,47 @@ static int      wavamp0 = WAV_MIN_AMP;
 static int      wavamp1 = WAV_MIN_AMP;
 static bool     bLogDisplay = true;
 
+/* to avoid conflict between the main loop and interrupt function */
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER; 
 
 void error_notifier(int n);
 
 void hardwareSetup();
 bool updateScreen();
 void stopApplication();
-void getResponse(struct Response *res);
+void getResponse(struct Response* res);
 void updateResponse(char* label, int value, int cur0, int cur1, int next_id);
 
-bool isSensorAppRunning();
-bool isSensorDataReceived();
-bool receivedSensorData();
-void requestSensorData();
+int  isAppRunning();
+bool isDataReceived();
+bool receivedData();
+void requestData();
 
-bool isFftWavAppRunning();
-bool isFftWavDataReceived();
-bool receivedFftWavData();
-void requestFftWavData();
+void clearScreen(DynamicJsonDocument* jdoc);
+void BuildScreen(DynamicJsonDocument* doc);
+void buildTitle(DynamicJsonDocument* doc);
+void buildAppSign(DynamicJsonDocument* doc);
+void buildInput(DynamicJsonDocument* doc);
+void buildMenu(DynamicJsonDocument* doc);
+void buildDMenu(DynamicJsonDocument* doc);
+void buildMonitor(DynamicJsonDocument* doc);
+void build2WayGraph(DynamicJsonDocument* doc);
+void buildOrbitGraph(DynamicJsonDocument* doc);
+void buildChStatus(DynamicJsonDocument* doc);
+void buildButton(DynamicJsonDocument* doc);
+void buildNextBackConnection(DynamicJsonDocument* doc);
 
-bool isFftFftAppRunning();
-bool isFftFftDataReceived();
-bool receivedFftFftData();
-void requestFftFftData();
+void appSensorValue(float acc, float vel, float dis);
+void appDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df);
+void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
+void appDrawOrbitGraph(float* pWav, float* pSubWav, int len, float df);
+void appDrawFilterGraph(float* pWav0, float*pSubWav, int len1, float df);
 
-bool isOrbitAppRunning();
-bool isOrbitDataReceived();
-bool receivedOrbitData();
-void requestOrbitData();
+/* helper functions */
+void putHorizonLine(int h, int color);
+void putItemCursor(int x, int y, int color);
+bool putText(int x, int y, String str, int color, int tsize);
 
-
-void clearScreen(DynamicJsonDocument *jdoc);
-void BuildScreen(DynamicJsonDocument *doc);
-void buildTitle(DynamicJsonDocument *doc);
-void buildAppSign(DynamicJsonDocument *doc);
-void buildInput(DynamicJsonDocument *doc);
-void buildMenu(DynamicJsonDocument *doc);
-void buildDMenu(DynamicJsonDocument *doc);
-void buildMonitor(DynamicJsonDocument *doc);
-void build2WayGraph(DynamicJsonDocument *doc);
-void buildOrbitGraph(DynamicJsonDocument *doc);
-void buildChStatus(DynamicJsonDocument *doc);
-void buildButton(DynamicJsonDocument *doc);
-void buildNextBackConnection(DynamicJsonDocument *doc);
-
-void putSensorValue(float acc, float vel, float dis);
-void putDraw2WayGraph(float *pWav0, int len0, float *pFft1, int len1, float df);
-void putDraw2FftGraph(float *pFft, float* pSubFft, int len, float df);
-void putDrawOrbitGraph(float *pWav, float *pSubWav, int len, float df);
 void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
                      , int gskip, int x, int y, int w, int h
                      , uint16_t color, float df, int offset = 0
@@ -298,13 +300,11 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
                   , int len, int dskip, int x, int y, int w, int h
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
+
+
 void plottimescale(float df, int len, int head, bool redraw);
 void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
 void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);
-
-void putHorizonLine(int h, int color);
-void putItemCursor(int x, int y, int color);
-bool putText(int x, int y, String str, int color, int tsize);
 
 void writeLineToBuf(uint16_t fBuf[FRAME_WIDTH][FRAME_HEIGHT], int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color);

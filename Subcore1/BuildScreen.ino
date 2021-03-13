@@ -53,155 +53,65 @@ void BuildScreen(DynamicJsonDocument *doc) {
   case SCR_TYPE_MNTR:
     MPLog("Building Monitor Screen\n");
     buildMonitor(doc);
-    startSensorApp();
+    startApplication(APP_ID_MONDATA);
     buildChStatus(doc);
     break;
   case SCR_TYPE_WVFT:
     MPLog("Building FFT-WAV Screen\n");
     build2WayGraph(doc);
-    startFftWavApp();
+    startApplication(APP_ID_WAV_FFT);
     break;
   case SCR_TYPE_FFT2:
     MPLog("Building FFT-FFT Screen\n");
     build2WayGraph(doc);
-    startFftFftApp();
+    startApplication(APP_ID_FFT_FFT);
+    break;
   case SCR_TYPE_ORBT:
     MPLog("Building Orbit Screen\n");
-    buildOrbitGraph(doc);
-    startOrbitApp();
+    buildSpace(doc);
+    startApplication(APP_ID_WAV_WAV);
+    break;
+  case SCR_TYPE_FLTR:
+    MPLog("Building Orbit Screen\n");
+    build2WayGraph(doc);
+    startApplication(APP_ID_RAW_FIL);
     break;
   }
   buildButton(doc);
   buildNextBackConnection(doc);
 }
 
+/* appllication life cycle control */
+static bool bAppRunning = false;
+static bool bDataReceived = false;
+static int  app_id = 0;
 
-/* run Sensor application */
-static bool bSensorAppRunning = false;
-static bool bReceivedSensorData = false;
-void startSensorApp() {
-  bSensorAppRunning = true;
-  bReceivedSensorData = true;
+void startApplication(int appid) {
+  bAppRunning = true;
+  bDataReceived = true;
+  app_id = appid;
 }
 
-bool isSensorAppRunning() {
-  return bSensorAppRunning;
+int isAppRunning() {
+  return app_id;
 }
 
-void stopSensorApp() {
-  bSensorAppRunning = false;
-  bReceivedSensorData = false;
-}
-
-bool isSensorDataReceived() {
-  return bReceivedSensorData;
-}
-
-bool receivedSensorData() {
-  bReceivedSensorData = true;
-}
-
-void requestSensorData() {
-  bReceivedSensorData = false;
-}
-
-
-/* run FFT-WAV application */
-static bool bFftWavAppRunning = false;
-static bool bReceivedFftWavData = false;
-void startFftWavApp() {
-  bFftWavAppRunning = true;
-  bReceivedFftWavData = true;
-}
-
-bool isFftWavAppRunning() {
-  return bFftWavAppRunning;
-}
-
-void stopFftWavApp() {
-  bFftWavAppRunning = false;
-  bReceivedFftWavData = false;
-}
-
-bool isFftWavDataReceived() {
-  return bReceivedFftWavData;
-}
-
-bool receivedFftWavData() {
-  bReceivedFftWavData = true;
-}
-
-void requestFftWavData() {
-  bReceivedFftWavData = false;
-}
-
-
-/* run FFT-FFT application */
-static bool bFftFftAppRunning = false;
-static bool bReceivedFftFftData = false;
-void startFftFftApp() {
-  bFftFftAppRunning = true;
-  bReceivedFftFftData = true;
-}
-
-bool isFftFftAppRunning() {
-  return bFftFftAppRunning;
-}
-
-void stopFftFftApp() {
-  bFftFftAppRunning = false;
-  bReceivedFftWavData = false;
-}
-
-bool isFftFftDataReceived() {
-  return bReceivedFftFftData;
-}
-
-bool receivedFftFftData() {
-  bReceivedFftFftData = true;
-}
-
-void requestFftFftData() {
-  bReceivedFftFftData = false;
-}
-
-
-/* run ORBT application */
-static bool bOrbitAppRunning = false;
-static bool bReceivedOrbitData = false;
-void startOrbitApp() {
-  bOrbitAppRunning = true;
-  bReceivedOrbitData = true;
-}
-
-bool isOrbitAppRunning() {
-  return bOrbitAppRunning;
-}
-
-void stopOrbitApp() {
-  bOrbitAppRunning = false;
-  bReceivedOrbitData = false;
-}
-
-bool isOrbitDataReceived() {
-  return bReceivedOrbitData;
-}
-
-bool receivedOrbitData() {
-  bReceivedOrbitData = true;
-}
-
-void requestOrbitData() {
-  bReceivedOrbitData = false;
-}
-
-
-/* Force halt application */
 void stopApplication() {
-  stopSensorApp();
-  stopFftWavApp();
-  stopFftFftApp();
-  stopOrbitApp();
+  bAppRunning = false;
+  bDataReceived = false;
+  app_id = 0;
+}
+
+bool isDataReceived() {
+  return bDataReceived;
+}
+
+void requestedData() {
+  bDataReceived = false;
+}
+
+bool receivedData() {
+  bDataReceived = true;
 }
 
 

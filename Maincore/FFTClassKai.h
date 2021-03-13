@@ -46,8 +46,8 @@ public:
   FFTClassKai(int FFTLEN);
   ~FFTClassKai();
   bool begin(windowType_t type, float overlap);
-  void fft(float *pSrc, float *pDst);
-  void fft_amp(float *pSrc, float *pDst);
+  void fft(float* pDst, float* pSrc);
+  void fft_amp(float* pDst, float* pSrc);
   void clear();
   void end();
 
@@ -57,8 +57,8 @@ private:
   arm_rfft_fast_instance_f32 S;
 
   /* Temporary buffer */
-  float *coef;
-  float *tmpOutBuf;
+  float* coef;
+  float* tmpOutBuf;
 
   void create_coef(windowType_t type);
   bool fft_init();

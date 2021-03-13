@@ -1,0 +1,16 @@
+{
+  "id":356,
+  "title":"FFT 2 WAY MONITOR",
+  "type":5,
+  "cur0":0,
+  "cur1":0,
+  "ch_disp":1,
+  "ch0":0,
+  "back":385,
+  "next0":0,
+  "res_label":"non",
+  "B0":"DOWN",
+  "B1":"  UP",
+  "B2":"BACK",
+  "B3":"NEXT"
+}

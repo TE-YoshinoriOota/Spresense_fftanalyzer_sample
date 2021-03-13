@@ -38,7 +38,7 @@ void FFTClassKai::clear(){
 void FFTClassKai::end(){}
 
 void FFTClassKai::create_coef(windowType_t type){
-  for (int i = 0; i < m_FFTLEN / 2; i++){
+  for (int i = 0; i < m_FFTLEN/2; i++){
     if(type == WindowHamming){
       coef[i] = 0.54f - (0.46f * arm_cos_f32(2 * PI * (float)i / (m_FFTLEN - 1)));
     }else if(type == WindowHanning){
@@ -75,11 +75,11 @@ bool FFTClassKai::fft_init(){
   return true;
 }
 
-void FFTClassKai::fft(float *pSrc, float *pDst){
+void FFTClassKai::fft(float* pDst, float* pSrc){
   arm_rfft_fast_f32(&S, pSrc, pDst, 0);
 }
 
-void FFTClassKai::fft_amp(float *pSrc, float *pDst){
+void FFTClassKai::fft_amp(float* pDst, float* pSrc){
   /* calculation */
   arm_rfft_fast_f32(&S, pSrc, tmpOutBuf, 0);
   arm_cmplx_mag_f32(&tmpOutBuf[2], &pDst[1], m_FFTLEN/2 - 1);
