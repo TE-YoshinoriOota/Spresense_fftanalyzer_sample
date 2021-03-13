@@ -1,119 +1,46 @@
-#include <ArduinoJson.h>
-#include <SDHCI.h>
-#include <MP.h>
-#include <Audio.h>
-
-/* Use CMSIS library */
-#define ARM_MATH_CM4
-#define __FPU_PRESENT 1U
-#include <cmsis/arm_math.h>
-#include <RingBuff.h>
-
-#define SID_SIG_MASK 0x10
-#define SID_END_MASK 0x20
-#define SID_ERR_MASK 0x40
-
-#define SID_DOC_MASK 0x01
-#define SID_DAT_MASK 0x02
-#define SID_WAV_MASK 0x04
-#define SID_FFT_MASK 0x08
-
-#define SUBCORE (1)
-#define JSON_BUFFER    (1024)
-
-#define MAX_FIFO_BUFF  (4096)
-#define MAX_CHANNEL    (4)
-
-struct Response {
-  char label[5];
-  int  value;
-  int  cur0;
-  int  cur1;
-  int  next_id;
-};
-
-struct SensorData {
-  float acc;
-  float vel;
-  float dis;
-};
-
-struct FftWavData {
-  float* pWav;
-  float* pFft;
-  int len;
-  float df;
-};
-
-struct FftFftData {
-  float* pFft;
-  float* pSubFft;
-  int len;
-  float df;
-};
-
-SDClass theSD;
-
-/*　json documents */
-String dfile = "AA000.txt";
-String sfile = "sys.txt";
-DynamicJsonDocument* djson = new DynamicJsonDocument(JSON_BUFFER);
-DynamicJsonDocument* sjson = new DynamicJsonDocument(JSON_BUFFER);
-
-/* For Menu Framework */
-struct Response *res = NULL;
-struct SensorData sData;
-pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-
-/* For Singal Processing */
-AudioClass *theAudio = AudioClass::getInstance();
-static char *pRaw;
-static float* pWav = NULL;
-static float* pSubWav = NULL;
-static bool bProcessing = false;
-static bool bThreadStopped = true;
-static bool bSignalProcessingStarted    = false;
-
-/* For FFT processing */
-RingBuff *ringbuff = NULL;
-static float* pTmp = NULL;
-static float* pFft = NULL;
-static float* pSubFft = NULL;
-static FftWavData fftWavData;
-static FftFftData fft2Data;
-
-
-/* System properties */
-static int  g_sid;
-static int  g_sens;
-static int  g_gain;
-static int  g_chnm;
-static int  g_ch0;
-static int  g_ch1;
-static int  g_rate;
-static int  g_samp;
-static int  g_lpf;
-static int  g_hpf;
-
-static double unit;
-static uint16_t buffer_size;
-
+#include "AppSystem.h"
 
 void setup() {
+  int ret;
+  
+  pinMode(LED0, OUTPUT);
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+  
   Serial.begin(115200);
-  MP.begin(SUBCORE);
+  while (!Serial) {}
+
+  while (!theSD.begin()) {
+    Serial.println("Insert SD card");
+    error_notifier(FILE_ERROR);
+  }
+  
+  ret = MP.begin(SUBCORE);
+  if (ret < 0) {
+    Serial.println("MP.begin error: " + String(ret));
+    while(true) { 
+      error_notifier(MP_ERROR); 
+    }
+  }
   
   djson = updateJson(djson, NULL);
   int8_t sid = SID_DOC_MASK;
-  MP.Send(sid, djson, SUBCORE);
+  ret = MP.Send(sid, djson, SUBCORE);
+  if (ret < 0) {
+    Serial.println("MP.Send error: " + String(ret));
+    while(true) { 
+      error_notifier(MP_ERROR); 
+    }    
+  }
   MP.RecvTimeout(MP_RECV_POLLING);
 }
 
 void loop() {
-
+  int ret;
   int8_t sid = 0;
   if (MP.Recv(&sid, &res, SUBCORE) < 0) {
-    usleep(1);
+    usleep(1); // yield the process to SignalProcessing
     return;
   }
   printf("[Main] 0x%02x\n", sid);
@@ -124,8 +51,12 @@ void loop() {
     /* stop the signal processing */
     bProcessing = false;
     Serial.println("Stop Thread");
-    /* wait for stopping the thread */
-    while (!bThreadStopped) { Serial.println("."); usleep(1); } 
+    
+    /* wait for the thread to stopp */
+    while (!bThreadStopped) { 
+      usleep(1); 
+    } 
+    
     if (bSignalProcessingStarted) {
       finish_processing();
       bSignalProcessingStarted = false;
@@ -143,7 +74,13 @@ void loop() {
     (*djson)["ch1"] = ch1;
 
     /* send the json document to change the page on LCD */
-    MP.Send(sid, djson, SUBCORE);
+    ret = MP.Send(sid, djson, SUBCORE);
+    if (ret < 0) {
+      Serial.println("MP.Send error: " + String(ret));
+      while(true) { 
+        error_notifier(MP_ERROR); 
+      }    
+    }      
 
   } else if (sid > SID_DOC_MASK) {
     /* request to launch sensor applications */
@@ -165,34 +102,64 @@ void loop() {
 
       /* send the data to update the number on LCD display */
       sid = SID_DAT_MASK;
-      MP.Send(sid, &sdata, SUBCORE);
-      
+      ret = MP.Send(sid, &sdata, SUBCORE);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) {
+          error_notifier(MP_ERROR);
+        }    
+      }      
     } else if ((sid & (SID_FFT_MASK | SID_WAV_MASK)) == (SID_FFT_MASK | SID_WAV_MASK)) {
     /* request calculate fft data */
 
       calc_fft_data(&fftWavData);
 
-
       Serial.println("Send fft-wav data to SUBCORE");
 
       /* send the wan and fft data to update the graph on LCD display */     
       sid = (SID_FFT_MASK | SID_WAV_MASK);
-      MP.Send(sid, &fftWavData, SUBCORE);
-
+      ret = MP.Send(sid, &fftWavData, SUBCORE);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while (true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }      
     } else if ((sid & SID_FFT_MASK) == (SID_FFT_MASK)) {
     /* request calculate double fft data */
 
       calc_fft2_data(&fft2Data);
 
-
       Serial.println("Send fft-fft data to SUBCORE");
 
       /* send the wan and fft data to update the graph on LCD display */     
       sid = SID_FFT_MASK;
-      MP.Send(sid, &fft2Data, SUBCORE);
+      ret = MP.Send(sid, &fft2Data, SUBCORE);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while (true) {
+          error_notifier(MP_ERROR); 
+        }    
+      }
+            
+    } else if ((sid & SID_WAV_MASK) == (SID_WAV_MASK)) {
+    /* request calculate double wav data */   
 
+      get_wav2_data(&wav2Data);
+
+      Serial.println("Send wav-wav data to SUBCORE");
+      
+      /* send the wan and fft data to update the graph on LCD display */     
+      sid = SID_WAV_MASK;
+      ret = MP.Send(sid, &wav2Data, SUBCORE);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }
       
     }
   }
-  usleep(1);
+  usleep(1); // yield 
 }

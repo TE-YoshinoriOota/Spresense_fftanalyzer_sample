@@ -1,14 +1,37 @@
 #include "AppScreen.h"
 
+
+/* Error Notifier */
+void error_notifier(int n) {
+  
+  if (n & LED0_MASK)  digitalWrite(LED0, HIGH);
+  if (n & LED1_MASK)  digitalWrite(LED1, HIGH);
+  if (n & LED2_MASK)  digitalWrite(LED2, HIGH);
+  if (n & LED3_MASK)  digitalWrite(LED3, HIGH);
+  delay(100);
+
+  if (n & LED0_MASK)  digitalWrite(LED0, LOW);
+  if (n & LED1_MASK)  digitalWrite(LED1, LOW);
+  if (n & LED2_MASK)  digitalWrite(LED2, LOW);
+  if (n & LED3_MASK)  digitalWrite(LED3, LOW);
+  delay(100);
+}
+
+
 /* Graphic related helper functions */
+/* Decoration Line */
 void putHorizonLine(int h, int color) {
   tft.drawLine(0, h, SCREEN_WIDTH-1, h, color);
 }
 
+
+/* Cursor on a menu or a page screen */
 void putItemCursor(int x, int y, int color) {
   tft.fillRect(x, y, MENU_CUR_SIZE, MENU_CUR_SIZE, color);
 }
 
+
+/* Helper function to put texts */
 bool putText(int x, int y, String str, int color, int tsize) {
   if ((x >= 0 && x < SCREEN_WIDTH) 
   &&  (y >= 0 && y < SCREEN_HEIGHT)
@@ -24,11 +47,14 @@ bool putText(int x, int y, String str, int color, int tsize) {
   Serial.println("putText error");
   return false;
 }
+
+
+/* Draw a linear graph on FFT/WAV applications */
 void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
                      , int gskip, int side, int head, int width, int height
                      , uint16_t color, float df, int offset, bool clr, bool draw) {
-  if (clr == true)
-    memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+                      
+  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
     
   int m, n;
   for (m = 0, n = 0; m < FRAME_HEIGHT-gskip; m+=gskip, ++n) {
@@ -44,18 +70,17 @@ void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
     writeLineToBuf(frameBuf, val0, m, val1, m+gskip, color);
   }
   
-  if (draw == true)
-    tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+  if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
 }
 
 
+/* Draw a log graph on FFT applications */
 void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
                   , int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
-                  , int offset, bool clr, bool draw) {
+                  , bool clr, bool draw, int offset) {
 
-  if (clr == true)
-    memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FFT_GRAPH_WIDTH*FFT_GRAPH_HEIGHT);
+  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
 
   int n;
   for (int n = 0; n < len; ++n) {
@@ -76,10 +101,11 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
     writeLineToBuf(frameBuf, val0, iy0, val1, iy1, color);
   }
 
-  if (draw == true)
-    tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+  if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
 }
 
+
+/* plot a time scale on a liner graph for WAV applications */
 void plottimescale(float df, int len, int head, bool redraw) {
   if (plotscale1_done == true) return;
   float srate = df*len; // sampling rate
@@ -133,6 +159,8 @@ void plottimescale(float df, int len, int head, bool redraw) {
     plotscale0_done = true;   
 }
 
+
+/* plot a liear scale on a liner graph for FFT applications */
 void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw) {
   if (plotscale1_done == true) return;
   uint32_t max_freq = df*dskip*FFT_GRAPH_WIDTH/gskip;
@@ -163,6 +191,7 @@ void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw) {
 }
 
 
+/* plot a log scale on a log graph for FFT applications */
 void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw) {
   if (plotscale1_done == true) return;
   /* graph scale */
@@ -194,17 +223,19 @@ void plotlogscale(int interval, float df, double f_min_log, int head, bool redra
       } 
     }
   }
+  
   if (redraw == false)
     plotscale1_done = true;
 }
 
 
+/* Helper function for drawing lines on a graph based on Bresenham's line algorithm */
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
-
-/* Bresenham's line algorithm */
-void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT], int16_t x0, int16_t y0, int16_t x1, int16_t y1, int16_t color) {
+void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT]
+                  , int16_t x0, int16_t y0
+                  , int16_t x1, int16_t y1, int16_t color) {
 
   /* limitter */
   if (x0 < 0) x0 = 0;
@@ -256,9 +287,56 @@ void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT], int16_t x0, int16_t y0, int16
 }
 
 
+/* Helper function for drawing the circle for the orbit graph */ 
+void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
+                    , int16_t x0, int16_t y0, int16_t r, uint16_t color) {
+  int16_t f = 1 - r;
+  int16_t ddF_x = 1;
+  int16_t ddF_y = -2 * r;
+  int16_t x = 0;
+  int16_t y = r;
 
-// tentative implemntation, no test, no check.
-// if you want to use this, please do look into the code.
+  orbitBuf[x0][y0+r] = color;
+  orbitBuf[x0][y0-r] = color;
+  orbitBuf[x0+r][y0] = color;
+  orbitBuf[x0-r][y0] = color;
+
+  while (x < y) {
+    if (f >= 0) {
+        y--;
+        ddF_y += 2;
+        f += ddF_y;
+    }
+    ++x;
+    ddF_x += 2;
+    f += ddF_x;
+    orbitBuf[x0+x][y0+y] = color;
+    orbitBuf[x0-x][y0+y] = color;
+    orbitBuf[x0+x][y0-y] = color;
+    orbitBuf[x0-x][y0-y] = color;
+    orbitBuf[x0+y][y0+x] = color;
+    orbitBuf[x0-y][y0+x] = color;
+    orbitBuf[x0+y][y0-x] = color;
+    orbitBuf[x0-y][y0-x] = color;
+  }
+
+  // x axis
+  for (x = 0; x < r; ++x) {
+    orbitBuf[x0+x][y0] = color;
+    orbitBuf[x0-x][y0] = color;
+  }
+
+  // y axis
+  for (y = 0; y < r; ++y) {
+    orbitBuf[x0][y0+y] = color;
+    orbitBuf[x0][y0-y] = color;
+  }
+}
+
+
+
+// tentative implemntation. no test/no check have been made.
+// if you want to use this, please do look into the code before using.
 void putLcdLineGraph(int graph[], int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
   tft.fillRect(x, y, w, h, ILI9341_BLACK);
   int i,j;
@@ -274,11 +352,11 @@ void putLcdLineGraph(int graph[], int gskip, int x, int y, int w, int h, uint16_
   }  
 }
 
-// tentative implemntation, no test, no check.
-// if you want to use this, please do look into the code.
+// tentative implemntation. no test/no check have been made.
+// if you want to use this, please do look into the code before using.
 void putBufFillGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
-                  , int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
-  memset(frameBuf, ILI9341_BLACK, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+                   , int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
+  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
   int m, n;
   for (int m = 0, n = 0; m < FRAME_HEIGHT; m+=gskip, ++n) {
     int val = graph[n] + y_axis;

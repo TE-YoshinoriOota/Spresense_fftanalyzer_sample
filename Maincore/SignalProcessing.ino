@@ -1,13 +1,13 @@
-#include <ArduinoJson.h>
+#include "AppSystem.h"
 #include "FFTClassKai.h"
+#include <IIR.h>
 
-#ifndef USE_ARDUINO_FFT
+
+
 FFTClassKai* fft = NULL;
-#endif
+static uint32_t last_time; // To measure the processing time
 
-static uint32_t last_time;
-
-static void init_processing(int8_t sid, DynamicJsonDocument* sys) {
+void init_processing(int8_t sid, DynamicJsonDocument *sys) {
   int err, ret;
   int ch, line;
 
@@ -65,7 +65,9 @@ static void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     pSubFft = (float*)malloc(sizeof(float)*g_samp);
     if (pTmp == NULL || pFft == NULL || pSubFft == NULL) {
       Serial.println("not enough memory");
-      exit(1);
+      while (true) {
+        error_notifier(MEM_ERROR);
+      }
     }
 
     memset(pTmp, 0, sizeof(float)*g_samp);
@@ -83,7 +85,7 @@ static void init_processing(int8_t sid, DynamicJsonDocument* sys) {
 }
 
 
-static void signal_processing(int argc, char* argv[]) {
+static void signal_processing(int argc, char *argv[]) {
   
   int err, ret;
   int read_size;
@@ -154,7 +156,7 @@ void finish_processing() {
   }
 }
 
-static void calc_sensor_data(struct SensorData* sdata) {
+void calc_sensor_data(struct SensorData *sdata) {
 
   /* get the data from the ringbuffer */
   pthread_mutex_lock(&m);
@@ -167,7 +169,7 @@ static void calc_sensor_data(struct SensorData* sdata) {
   last_time = cur_time;
 }
 
-static void calc_fft_data(struct FftWavData* fdata) {
+void calc_fft_data(struct FftWavData *fdata) {
   
   /* Copy data for FFT calculation */
   //uint32_t mTime = millis();
@@ -188,7 +190,7 @@ static void calc_fft_data(struct FftWavData* fdata) {
   fdata->df   = (float)(g_rate)/g_samp;
 }
 
-static void calc_fft2_data(struct FftFftData* fdata) {
+void calc_fft2_data(struct FftFftData *fdata) {
   
   /* Copy data for FFT calculation */
   uint32_t mTime = millis();
@@ -216,6 +218,21 @@ static void calc_fft2_data(struct FftFftData* fdata) {
   fdata->len  = g_samp;
   fdata->df   = (float)(g_rate)/g_samp;
  
+}
+
+
+void get_wav2_data(struct WavWavData *wdata) {
+  
+  pthread_mutex_lock(&m);
+  ringbuff[(g_ch0-1)].get(pWav, g_samp);       
+  ringbuff[(g_ch1-1)].get(pSubWav, g_samp);       
+  pthread_mutex_unlock(&m); 
+
+  wdata->pWav = pWav;
+  wdata->pSubWav = pSubWav;
+  wdata->len  = g_samp;
+  wdata->df   = (float)(g_rate)/g_samp;
+  
 }
 
 

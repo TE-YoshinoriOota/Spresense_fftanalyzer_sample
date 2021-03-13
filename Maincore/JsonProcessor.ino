@@ -1,6 +1,7 @@
-#include <ArduinoJson.h>
+#include "AppSystem.h"
 
-static void update_system_properties(int8_t sid, DynamicJsonDocument *sys) {
+
+void update_system_properties(int8_t sid, DynamicJsonDocument *sys) {
   int ch, line;
   /* update System Properties */
   g_sid   = sid;              // Serial.println("sid : " + String(g_sid));
@@ -17,18 +18,16 @@ static void update_system_properties(int8_t sid, DynamicJsonDocument *sys) {
   g_hpf   = (*sys)["hpf"];    // Serial.println("hpf : " + String(g_hpf));
 }
 
-static void readSysprop(int8_t sid, DynamicJsonDocument *doc) {
+void readSysprop(int8_t sid, DynamicJsonDocument *doc) {
+  
   File mySysprop;
   sfile = "sys.txt";
   Serial.println("Open system file : " + sfile);
   mySysprop = theSD.open(sfile, FILE_READ);
   if (!mySysprop) {
     Serial.println("Cannot open " + sfile);
-    while (1) {
-      digitalWrite(LED0, HIGH);
-      delay(1000);
-      digitalWrite(LED0, LOW);
-      delay(1000);
+    while (true) { 
+      error_notifier(JSON_ERROR);
     }
   }
   String strSysprop;
@@ -36,18 +35,16 @@ static void readSysprop(int8_t sid, DynamicJsonDocument *doc) {
   DeserializationError error = deserializeJson(*doc, strSysprop);
   if (error) {
     Serial.println("deserializeJson() failed: " + String(error.f_str()));
-    while (1) {
-      digitalWrite(LED1, HIGH);
-      delay(1000);
-      digitalWrite(LED1, LOW);
-      delay(1000);
+    while (true) {
+      error_notifier(JSON_ERROR);
     }
   }
   mySysprop.close();
   update_system_properties(sid, doc);
 }
 
-static bool updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
+void updateSysprop(int8_t sid, DynamicJsonDocument *doc, struct Response *res) {
+  
   if (res == NULL) return false;
   if (res->value < 0) return false;
 
@@ -58,24 +55,17 @@ static bool updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response*
   mySysprop = theSD.open(sfile, FILE_READ);
   if (!mySysprop) {
     Serial.println("Cannot open " + sfile);
-    while (1) {
-      digitalWrite(LED0, HIGH);
-      delay(1000);
-      digitalWrite(LED0, LOW);
-      delay(1000);
+    while (true) {
+      error_notifier(FILE_ERROR);
     }
   }
+  
   String strSysprop;
   while (mySysprop.available()) strSysprop += char(mySysprop.read());
   DeserializationError error = deserializeJson(*doc, strSysprop);
   if (error) {
     Serial.println("deserializeJson() failed: " + String(error.f_str()));
-    while (1) {
-      digitalWrite(LED1, HIGH);
-      delay(1000);
-      digitalWrite(LED1, LOW);
-      delay(1000);
-    }
+    while (true) error_notifier(JSON_ERROR);
   }
   mySysprop.close();
 
@@ -83,32 +73,38 @@ static bool updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response*
   char* label = res->label;
   int   value = res->value;
   if (theSD.exists(sfile)) theSD.remove(sfile);
-  Serial.println("Update sysprop file : " + sfile);
+  Serial.println("Update System Property File : " + sfile);
   Serial.println(String(label) + ":" + String(value));
+
   int8_t appid = (*doc)["id"];
   appid /= 100;
   (*doc)["app"] = appid;
   (*doc)[label] = value;
   mySysprop = theSD.open(sfile , FILE_WRITE);
+  if (!mySysprop) {
+    Serial.println("Cannot open " + sfile);
+    while (true) {
+      error_notifier(FILE_ERROR);
+    }
+  }
+
   size_t wsize = serializeJson((*doc), mySysprop);
   if (wsize == 0) {
     Serial.print("serializeJson() failed: ");
-    while (1) {
-      digitalWrite(LED2, HIGH);
-      delay(1000);
-      digitalWrite(LED2, LOW);
-      delay(1000);
+    while (true) {
+      error_notifier(JSON_ERROR);
     }
   }
   mySysprop.close(); 
+  
   update_system_properties(sid, doc);
 }
 
-static DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response *res) {
+DynamicJsonDocument* updateJson(DynamicJsonDocument *doc, struct Response *res) {
  
   File myJson;
   if (res == NULL) {
-    Serial.println("Response is null");
+    // Serial.println("Response is null. Open the home menu");
     dfile = "AA000.txt";
   } else {
     int cur0 = res->cur0;
@@ -124,11 +120,8 @@ static DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response
     size_t wsize = serializeJson((*doc), myJson);
     if (wsize == 0) {
       Serial.print("serializeJson() failed: ");
-      while (1) {
-        digitalWrite(LED2, HIGH);
-        delay(1000);
-        digitalWrite(LED2, LOW);
-        delay(1000);
+      while (true) {
+        error_notifier(JSON_ERROR);
       }
     }
     myJson.close();    
@@ -143,11 +136,8 @@ static DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response
   myJson = theSD.open(dfile, FILE_READ);
   if (!myJson) {
     Serial.println("Cannot open " + dfile);
-    while (1) {
-      digitalWrite(LED0, HIGH);
-      delay(1000);
-      digitalWrite(LED0, LOW);
-      delay(1000);
+    while (true) {
+      error_notifier(FILE_ERROR);
     }
   }
   
@@ -156,11 +146,8 @@ static DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response
   DeserializationError error = deserializeJson(*doc, strJson);
   if (error) {
     Serial.println("deserializeJson() failed: " + String(error.f_str()));
-    while (1) {
-      digitalWrite(LED1, HIGH);
-      delay(1000);
-      digitalWrite(LED1, LOW);
-      delay(1000);
+    while (true) {
+      error_notifier(JSON_ERROR);
     }
   }
   myJson.close();

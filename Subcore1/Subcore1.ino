@@ -1,40 +1,27 @@
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_ILI9341.h>
-#include <ArduinoJson.h>
-#include <MP.h>
 #include "AppScreen.h"
-
-#define TFT_DC 9
-#define TFT_CS -1
-#define TFT_RST 8
-
-Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST);
-
-#define SID_DOC_MASK 0x01
-#define SID_DAT_MASK 0x02
-#define SID_WAV_MASK 0x04
-#define SID_FFT_MASK 0x08
-
-
-#define B3 (4)
-#define B2 (5)
-#define B1 (6)
-#define B0 (7)
 
 DynamicJsonDocument* json;
 
 void setup() {
+  int ret;
   int8_t sid;
   hardwareSetup();
-  MP.begin();
+  ret = MP.begin();
+  if (ret < 0) {
+    Serial.println("MP.begin error: " + String(ret));
+    while(true) { 
+      error_notifier(MP_ERROR); 
+    }    
+  }
+  
   MP.RecvTimeout(MP_RECV_POLLING);
 }
 
 void loop() {
+  int ret;
   int8_t sid = 0x00;
-  struct Response *res;
-  void *data;
+  struct Response *res = NULL;
+  void *data = NULL;
 
   /* Send a request to MainCore */
   if (updateScreen()) {
@@ -42,7 +29,13 @@ void loop() {
     stopApplication();
     getResponse(res);
     sid = SID_DOC_MASK;
-    MP.Send(sid, res);
+    ret = MP.Send(sid, res);
+    if (ret < 0) {
+      Serial.println("MP.Send error: " + String(ret));
+      while(true) { 
+        error_notifier(MP_ERROR); 
+      }    
+    }
     
   } else if (isSensorAppRunning()) {
     
@@ -50,7 +43,13 @@ void loop() {
     /* check whether the display process is running */
     if (isSensorDataReceived()) {
       sid = SID_DAT_MASK;
-      MP.Send(sid, data); /* data is dummy */
+      ret = MP.Send(sid, data); /* data is dummy */
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }
       requestSensorData();
     }
     
@@ -61,7 +60,13 @@ void loop() {
     if (isFftWavDataReceived()) {
       MPLog("Req FFT-WAV\n");  
       sid = (SID_FFT_MASK | SID_WAV_MASK);
-      MP.Send(sid, data);
+      ret = MP.Send(sid, data);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }
       requestFftWavData();
     }
 
@@ -72,14 +77,39 @@ void loop() {
     if (isFftFftDataReceived()) {
       MPLog("Req FFT-FFT\n");  
       sid = SID_FFT_MASK;
-      MP.Send(sid, data);
+      ret = MP.Send(sid, data);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }
       requestFftFftData();
+    }
+      
+  } else if (isOrbitAppRunning()) {
+
+    /* fft monitor application running */
+    /* check wheter the display process is running */
+    if (isOrbitDataReceived()) {
+      MPLog("Req WAV-WAV\n");  
+      sid = SID_WAV_MASK;
+      ret = MP.Send(sid, data);
+      if (ret < 0) {
+        Serial.println("MP.Send error: " + String(ret));
+        while(true) { 
+          error_notifier(MP_ERROR); 
+        }    
+      }
+      requestOrbitData();  
     }
   } 
 
   /* data arrived from MainCore */
   float dummy = 0.0;
-  if (MP.Recv(&sid, &data) < 0) return;
+  if (MP.Recv(&sid, &data) < 0) {
+    return;
+  }
   MPLog("sid: 0x%02x\n", sid);
 
   /* check if the data is json documents */
@@ -108,10 +138,9 @@ void loop() {
     
     /* check if th data is for FFT monitor application */
     struct FftWavData *fft = (struct FftWavData*)data;
-    if (fft->len == 0) { /* sometimes MainCore send a null data */
+    if (fft->len == 0) { /* sometimes Maincore send a null data, sp check it */
       MPLog("fft->len(%d)\n", fft->len);
       receivedFftWavData();
-      delay(500);
       return;
     }
     
@@ -132,7 +161,6 @@ void loop() {
     if (fft->len == 0) { /* sometimes MainCore send a null data */
       MPLog("fft->len(%d)\n", fft->len);
       receivedFftFftData();
-      delay(500);
       return;
     }
     
@@ -142,7 +170,28 @@ void loop() {
     
     uint32_t delay_time = (uint32_t)(1000. / fft->df);
     MPLog("dt=%d\n", delay_time);
-    delay(delay_time);
+    delay(delay_time); // is this call really needed?
+    
+  } else if ((sid & SID_WAV_MASK) == (SID_WAV_MASK)) {
+
+    MPLog("WAV-WAV Data arrived\n");
+    
+    /* check if th data is for FFT monitor application */
+    struct WavWavData *wav = (struct WavWavData*)data;
+    if (wav->len == 0) { /* sometimes MainCore send a null data */
+      MPLog("wav->len(%d)\n", wav->len);
+      receivedOrbitData();
+      return;
+    }
+    
+    MPLog("wav->len(%d), wav->df(%f)\n", wav->len, wav->df);
+    putDrawOrbitGraph(wav->pWav, wav->pSubWav, wav->len, wav->df);
+    receivedOrbitData();
+    
+    uint32_t delay_time = (uint32_t)(1000. / wav->df);
+    MPLog("dt=%d\n", delay_time);
+    delay(delay_time); // is this call really needed?
   }
-  //usleep(1);
+  
+  return;
 }

@@ -1,33 +1,12 @@
-//#define LCD_LINE_GRAPH
-//#define BUF_FILL_GRAPH
-//#define BUF_LINE_GRAPH
-//#define BUF_LOG_LINE_GRAPH
+#include "AppScreen.h"
 
 
-static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
-
-
-static int8_t scrType = 0;
-static bool   scrChange = false;
-
-static int nextScreen[5] = {-1,-1,-1,-1,-1};
-static int backScreen = -1;
-
-static uint8_t  item0_num = 0;
-static uint8_t  item1_num = 0;
-static uint8_t  inp_num = 0;
-static int8_t   cur0 = 0;
-static int8_t   cur1 = 0;
-static uint16_t inpsel[100];
-static int      graphDataBuf[FFT_GRAPH_WIDTH];
-static bool     plotscale0_done = false;
-static bool     plotscale1_done = false;
-static int      fftamp = FFT_MIN_AMP;
-static int      wavamp = WAV_MIN_AMP;
-static bool     bLogDisplay = true;
 
 DynamicJsonDocument* doc;
-pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+
+/* to avoid conflict between the main loop and interrupt function */
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER; 
+
 
 /* "DOWN" Operation */
 static void updateB0() {
@@ -46,13 +25,17 @@ static void updateB0() {
     curOperation(cur0, cur1);
     break; 
   case SCR_TYPE_WVFT:
-    if (wavamp == WAV_MAX_AMP) return;
+  case SCR_TYPE_FFT2:
+    if (wavamp0 == WAV_MAX_AMP) return;
+    if (fftamp0 == FFT_MAX_AMP) return;
     pthread_mutex_lock(&mtx);
-      wavamp += WAV_AMP_STEP;
+      wavamp0 += WAV_AMP_STEP;
+      fftamp0 += FFT_AMP_STEP;
     pthread_mutex_unlock(&mtx);
     break;
   }
 }
+
 
 /* "UP" Operation */
 static void updateB1() {
@@ -72,14 +55,17 @@ static void updateB1() {
     break;   
   case SCR_TYPE_WVFT:
   case SCR_TYPE_FFT2:
-    if (fftamp == FFT_MAX_AMP) return;
+    if (wavamp1 == WAV_MAX_AMP) return;
+    if (fftamp1 == FFT_MAX_AMP) return;
     pthread_mutex_lock(&mtx);
-      fftamp += FFT_AMP_STEP;
+      wavamp1 += WAV_AMP_STEP;
+      fftamp1 += FFT_AMP_STEP;
     pthread_mutex_unlock(&mtx);
     break;
 
   }
 }
+
 
 /* "BACK" Operation */
 static void updateB2() {
@@ -104,6 +90,7 @@ static void updateB2() {
   next_id = backScreen;
   updateResponse(label, value, cur0, cur1, next_id);
 }
+
 
 /* "NEXT" Operation */
 static void updateB3() {
@@ -142,7 +129,9 @@ static bool updateScreen() {
   return tmp;
 }
 
-void clearScreen(DynamicJsonDocument* jdoc) {
+
+/* this function is called when the page changes */
+void clearScreen(DynamicJsonDocument *jdoc) {
   scrType  = (*jdoc)["type"];
   scrChange = false;
   item0_num = 0;
@@ -151,20 +140,24 @@ void clearScreen(DynamicJsonDocument* jdoc) {
   cur1 = 0;
   backScreen = -1;
   doc = jdoc;
-  fftamp = FFT_MIN_AMP;
-  wavamp = WAV_MIN_AMP;
+  fftamp0 = FFT_MIN_AMP;
+  wavamp0 = WAV_MIN_AMP;
+  fftamp1 = FFT_MIN_AMP;
+  wavamp1 = WAV_MIN_AMP;
   plotscale0_done = false;
   plotscale1_done = false;
   memset(inpsel, 0, sizeof(uint16_t)*100);
   memset(nextScreen, -1, sizeof(int)*5);
   memset(&response, 0, sizeof(struct Response));
+  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
   memcpy(response.label, "non", sizeof(char)*3);
   tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK); 
 }
 
 
-
 /* UP/DOWN operation related functions */
+/* Cursor operation for menu and page screens */
 void curOperation(int cur) {
   uint16_t celDim[4] = {
      MENU_ITEM0_HEAD
@@ -178,6 +171,8 @@ void curOperation(int cur) {
   putItemCursor(MENU_CUR_SIDE, celDim[cur], ILI9341_YELLOW);  
 }
 
+
+/* Input operation for input screens */
 void inpOperation(int cur) {
   int w = INPUT_BOX_WIDTH - INPUT_MARGIN -3;
   int h = INPUT_BOX_HEIGHT - INPUT_MARGIN -3;
@@ -185,6 +180,8 @@ void inpOperation(int cur) {
   putText(MENU_ITEM_SIDE, MENU_ITEM1_HEAD, String(inpsel[cur]), ILI9341_WHITE, 3); 
 }
 
+
+/* Cursor operation for dual menu screens */
 void curOperation(int cur0, int cur1) {
   uint16_t celDim[4] = {
      DMENU_ITEM0_HEAD
@@ -202,14 +199,18 @@ void curOperation(int cur0, int cur1) {
   putItemCursor(DMENU_CUR_SIDE1, celDim[cur1], ILI9341_YELLOW);  
 }
 
+
 /* Building UI related functions */
-void buildTitle(DynamicJsonDocument* doc) {
+/* Buidling Title on top of the screen */
+void buildTitle(DynamicJsonDocument *doc) {
   char* title = (*doc)["title"];
   putText(TITLE_SIDE, TITLE_HEAD, title, ILI9341_YELLOW, 2);
   putHorizonLine(TITLE_DECO_LINE, ILI9341_YELLOW);  
 }
 
-void buildAppSign(DynamicJsonDocument* doc) {
+
+/* Building a sign of application selected */
+void buildAppSign(DynamicJsonDocument *doc) {
   static char appChar[6][4] = {
     " ","SET","MNT","FFT","DIF","OBT"
   }; 
@@ -221,7 +222,9 @@ void buildAppSign(DynamicJsonDocument* doc) {
   }
 }
 
-void buildInput(DynamicJsonDocument* doc) {
+
+/* Building a input dialog box */
+void buildInput(DynamicJsonDocument *doc) {
   inp_num = (*doc)["inp_num"];
   for (int i = 0; i < inp_num; ++i) {
     inpsel[i] = (*doc)["input"][i];
@@ -236,7 +239,9 @@ void buildInput(DynamicJsonDocument* doc) {
   inpOperation(cur0);
 }
 
-void buildMenu(DynamicJsonDocument* doc) {
+
+/* Building items on a menu screen */
+void buildMenu(DynamicJsonDocument *doc) {
   item0_num = (*doc)["item_num"];
   cur0 = (*doc)["cur0"];
   Serial.println("SELECTION ITEM :" + String(item0_num));
@@ -248,7 +253,9 @@ void buildMenu(DynamicJsonDocument* doc) {
   curOperation(cur0);
 }
 
-void buildDMenu(DynamicJsonDocument* doc) {
+
+/* Building items on a double menu screen */
+void buildDMenu(DynamicJsonDocument *doc) {
   item0_num = (*doc)["item0_num"];
   item1_num = (*doc)["item1_num"];
   cur0 = (*doc)["cur0"];
@@ -268,7 +275,9 @@ void buildDMenu(DynamicJsonDocument* doc) {
   curOperation(cur0, cur1);
 }
 
-void buildMonitor(DynamicJsonDocument* doc) {
+
+/* Building the screen for the sensor monitor application */
+void buildMonitor(DynamicJsonDocument *doc) {
   tft.drawRect(MON_BOX_SIDE, MON_BOX0_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX1_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX2_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
@@ -278,13 +287,22 @@ void buildMonitor(DynamicJsonDocument* doc) {
   putText(MON_UNIT_SIDE, MON_ELEM2_HEAD, String("m"), ILI9341_WHITE, 2);
 }
 
-void build2WayGraph(DynamicJsonDocument* doc) {
+
+/* Building the screen for 2 graph applications */
+void build2WayGraph(DynamicJsonDocument *doc) {
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX0_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+1, ILI9341_YELLOW);  
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX1_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+2, ILI9341_YELLOW); 
 }
 
 
-void buildChStatus(DynamicJsonDocument* doc) {
+/* Building the screen for the orbit graph application */
+void buildOrbitGraph(DynamicJsonDocument *doc) {
+  // currently no operation so far...??
+  // the graph is drawn by putFunction operating graphic buffer
+}
+
+/* Building a sign of selected channel */
+void buildChStatus(DynamicJsonDocument *doc) {
   int ch_disp = (*doc)["ch_disp"];
   Serial.println("CHANNEL DISPLAY :" + String(ch_disp));
   for (int i = 0; i < ch_disp; ++i) {
@@ -296,7 +314,9 @@ void buildChStatus(DynamicJsonDocument* doc) {
   }
 }
 
-void buildButton(DynamicJsonDocument* doc) {
+
+/* Building buttons */
+void buildButton(DynamicJsonDocument *doc) {
   char* b0 = (*doc)["B0"];
   char* b1 = (*doc)["B1"];
   char* b2 = (*doc)["B2"];
@@ -309,7 +329,9 @@ void buildButton(DynamicJsonDocument* doc) {
   putText(BUTTON3_SIDE, BUTTON_HEAD, b3, ILI9341_CYAN, 2);  
 }
 
-void buildNextBackConnection(DynamicJsonDocument* doc) {
+
+/* Building a connection to a next page and a back page */
+void buildNextBackConnection(DynamicJsonDocument *doc) {
   if (scrType == SCR_TYPE_PAGE) {
     for (int i = 0; i < item0_num; ++i) {
       String next = String("next") + String(i);
@@ -324,6 +346,7 @@ void buildNextBackConnection(DynamicJsonDocument* doc) {
 }
 
 
+/* put sensor values to the sensor monitor screen */
 void putSensorValue(float acc, float vel, float dis) {
   tft.fillRect(MON_ELEM_SIDE, MON_ELEM0_HEAD, MON_BOX_WIDTH-MON_MARGIN*2, MON_BOX_HEIGHT-MON_MARGIN*2+1, ILI9341_BLACK);
   tft.fillRect(MON_ELEM_SIDE, MON_ELEM1_HEAD, MON_BOX_WIDTH-MON_MARGIN*2, MON_BOX_HEIGHT-MON_MARGIN*2+1, ILI9341_BLACK);
@@ -339,8 +362,10 @@ void putSensorValue(float acc, float vel, float dis) {
   sprintf(dataText, "%+02.2f", dis);
   putText(MON_ELEM_SIDE, MON_ELEM2_HEAD, dataText, ILI9341_WHITE, 3);
 }
- 
-void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
+
+
+/* put WAV and FFT data on graphs on the WAV-FFT application */
+void putDraw2WayGraph(float *pWav, int len0, float *pFft, int len1, float df) {
   int i,j;
   int interval;
   double f_max;
@@ -348,10 +373,9 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
   double f_min_log;
   
   pthread_mutex_lock(&mtx);
-  int f_amp = fftamp;
-  int w_amp = wavamp;
+  int w_amp = wavamp0;
+  int f_amp = fftamp1;
   pthread_mutex_unlock(&mtx);
-
 
   /* draw upper graph */
   MPLog("len0: %d  len1: %d  df: %1.4f\n", len0, len1, df); 
@@ -414,7 +438,9 @@ void putDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df) {
   }
 }
 
-void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
+
+/* put FFT and FFT data on graphs on the FFT-FFT application */
+void putDraw2FftGraph(float *pFft, float *pSubFft, int len, float df) {
   int i, j;
   int interval;
   double f_max;
@@ -422,7 +448,8 @@ void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
   double f_min_log;
   
   pthread_mutex_lock(&mtx);
-  int f_amp = fftamp;
+  int f_amp0 = fftamp0;
+  int f_amp1 = fftamp1;
   pthread_mutex_unlock(&mtx);
 
   int gskip, dskip;
@@ -445,8 +472,9 @@ void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
    
   /* copy and scale the ch1 data to display */
   memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
   for (i = 0, j = 0; i < len; i += dskip, ++j) {
-    graphDataBuf[j] = (int)(f_amp*pFft[i]);
+    graphDataBuf[j] = (int)(f_amp0*pFft[i]);
   }
 
   /* draw upper graph */
@@ -466,8 +494,9 @@ void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
 
   /* copy and scale the ch2 data to display */
   memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
   for (i = 0, j = 0; i < len; i += dskip, ++j) {
-    graphDataBuf[j] = (int)(f_amp*pSubFft[i]);
+    graphDataBuf[j] = (int)(f_amp1*pSubFft[i]);
   }
 
   /* draw lower graph */
@@ -476,12 +505,90 @@ void putDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     putBufLinearGraph(frameBuf, graphDataBuf, gskip
                     , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
                     , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
-                    , ILI9341_MAGENTA, df);
+                    , ILI9341_MAGENTA, df, 0, true, false);
   } else {
     plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD);
     putBufLogGraph(frameBuf, graphDataBuf, len, dskip
                  , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
                  , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
-                 , ILI9341_MAGENTA, df, interval, f_min_log);
+                 , ILI9341_MAGENTA, df, interval, f_min_log
+                 , true, false);
   }
+
+  /* make fft diff data */
+  for (int i = 0; i < len; ++i) {
+    pSubFft[i] = abs(pFft[i] - pSubFft[i]);
+  }
+
+  /* copy and scale the diff data to display */
+  memset(graphDataBuf, 0, sizeof(int)*FFT_GRAPH_WIDTH);
+  for (i = 0, j = 0; i < len; i += dskip, ++j) {
+    graphDataBuf[j] = (int)(f_amp1*pSubFft[i]);
+  }
+
+  /* draw lower graph */
+  if (bLogDisplay == false) {
+    putBufLinearGraph(frameBuf, graphDataBuf, gskip
+                    , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                    , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                    , ILI9341_RED, df, 0, false, true);
+  } else {
+    plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD);
+    putBufLogGraph(frameBuf, graphDataBuf, len, dskip
+                 , FFT_GRAPH_SIDE, FFT_GRAPH1_HEAD
+                 , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_RED, df, interval, f_min_log
+                 , false, true);
+  }
+}
+
+
+/* put orbit trace on the graph on the orbit application */
+void putDrawOrbitGraph(float *pWav, float *pSubWav, int len, float df) {
+
+  int val0, val1;
+  int skip = len/ORBIT_SIZE;
+  static int last_w_amp0 = 0;
+  static int last_w_amp1 = 0;
+
+  pthread_mutex_lock(&mtx);
+  int w_amp0 = wavamp0;
+  int w_amp1 = wavamp1;
+  pthread_mutex_unlock(&mtx);
+
+  if (w_amp0 != last_w_amp0 || w_amp1 != last_w_amp1) {
+    // The magnification of the screen is changed. clear the screen.
+    memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+  }
+
+  MPLog("Plot wav data to buffer\n");
+  /* no need to care about graph direction with this orbit case */
+  for (int i = 0; i < len; i+=skip) {
+    if (i >= ORBIT_GRAPH_SIZE) break; // fail safe.
+    
+    val0 = (int)(w_amp0*pWav[i]);
+    val1 = (int)(w_amp1*pSubWav[i]);
+
+    if (val0 >= ORBIT_GRAPH_RADIUS)       val0 = ORBIT_GRAPH_RADIUS-1;
+    else if (val0 <= -ORBIT_GRAPH_RADIUS) val0 = -(ORBIT_GRAPH_RADIUS-1);
+  
+    if (val1 >= ORBIT_GRAPH_RADIUS)       val1 = ORBIT_GRAPH_RADIUS-1;
+    else if (val1 <= -ORBIT_GRAPH_RADIUS) val1 = -(ORBIT_GRAPH_RADIUS-1);
+
+    val0 += ORBIT_GRAPH_RADIUS;
+    val1 += ORBIT_GRAPH_RADIUS;
+  
+    orbitBuf[val0][val1] = ILI9341_CYAN;
+  }
+
+  MPLog("Write OrBitGraph\n");
+  writeOrBitGraphToBuf(orbitBuf, ORBIT_SIZE/2, ORBIT_SIZE/2
+                     , ORBIT_GRAPH_RADIUS, ILI9341_YELLOW);
+                     
+  int x = ORBIT_GRAPH_XCENTER-ORBIT_SIZE/2;
+  int y = ORBIT_GRAPH_YCENTER-ORBIT_SIZE/2;
+  tft.drawRGBBitmap(x, y, (uint16_t*)orbitBuf, ORBIT_SIZE, ORBIT_SIZE); 
+  
+  last_w_amp0 = w_amp0;
+  last_w_amp1 = w_amp1;
 }
