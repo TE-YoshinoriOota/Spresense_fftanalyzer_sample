@@ -576,7 +576,7 @@ void loop() {
 }
 ```
 
-# the construction process of applications on subcore
+# Construction process of applications on subcore
 The application framework of SPREFTA is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps.ino. The view is functions in ScreenElements.ino. Addition to that, The control buttons are handled by ScreenElements. The view is made by the builder functions in BuildScreen.ino. The construction process of an application is as follows. 
 
 1. A user changes an application page by pressing button "NEXT" or "BACK".
