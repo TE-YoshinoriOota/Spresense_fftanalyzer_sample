@@ -21,6 +21,7 @@ This sample is implemented on this package. If you are interested in, please con
 
 ![Spresense FFT sample](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/Package.jpg)
 
+Here are the screenshots of this sample application.
 ### Home Menu
 ![Home Menu](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/0_menu.jpg)
 
