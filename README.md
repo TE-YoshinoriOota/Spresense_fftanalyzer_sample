@@ -416,7 +416,7 @@ void get_rawfil_data(struct WavWavData* wdata) {
 }
 ```
 
-# Visualization on Subcore-1
+# Visualization application on Subcore-1
 Subcore-1 takes charge of the visualization of signal processed data. This application contains 3 parts. Application Life Cycle Management related to the communication part with Maincore.  Visualization part that plots signal processed data. Layouting part that managing information display and parameter inputs, etc... This chapter describes each part.
 
 ## Commnication between Maincore and Subcore-1
