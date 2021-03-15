@@ -1,6 +1,6 @@
 # Spresense FFT Analyzer sample
 
-# Software Structure of the sample
+# Software Structure of this sample
 This sample code uses 2 core. Maincore takes in charge of Signal Processing, Subcore-1 takes in charge of Visualization. To make the software understand easily and simply, these programs are made by Spresense Arduino Library. So you can remake them very easily. Here are the major specifications of this sample.
 
 
