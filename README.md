@@ -16,7 +16,7 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 |Dual signal analysis|line and filter can be set|Dual FFT graph to compare 2 signals|
 |Orbit analysis|Currenly, line can only be set|Plot 2 signals on X-Y coordinates to analyze the correlation|
 
-## Screen Shorts of this examples (still under development)
+## Screenshots of this examples (still under development)
 This sample is implemented on this package. If you are interested in, please contact Sony Semiconductor Solutions Corp. [Japanese](https://www.sony-semicon.co.jp/contact/) / [English](https://www.sony-semicon.co.jp/e/contact/)
 
 ![Spresense FFT sample](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/Package.jpg)
@@ -38,11 +38,11 @@ Here are the screenshots of this sample application.
 ![Orbit](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/5_orbit.jpg)
 
 
-# Singnal Processing on Maincore
+# Signal Processing on Maincore
 Signal Processing contains signal capturing part and signal processing part. Sensor signal comes from Spresense microphone interface supporting sampling rate of 16kHz, 48kHz, and 192 kHz. This sample includes digital filters like a high pass and a low pass filter and the fast Fourier transformation and so on. 
 
 
-## Ssignal capturing part on Maincore
+## Signal capturing part on Maincore
 Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And both the buffer size of the readframe and RingBuffer is very important. If you are not familiar with Spresense Audio system, you should not change the buffer size. If you change without knowledge, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. 
 
 ```
@@ -602,7 +602,7 @@ void loop() {
 }
 ```
 
-## Visalization process on Subcore-1
+## Visualization process on Subcore-1
 The visualization process of this sample is relatively complicated. The application model is based on Model-View-Controller. The main loop that manages Application Life Cycle is the controller needless to say. The model in charge of visualizing signal processed data is appDrawxxx functions implemented in ScreenApps file. The view functions that manage the layout of the application are defined in ScreenElements file. (The navigation buttons are handled by ScreenElements) The views are made by the builder functions in BuildScreen file. The construction process of an application is as follows. 
 
 1. A user changes an application page by pressing the button "NEXT" or "BACK".
