@@ -1,26 +1,28 @@
-# Spresense FFT Analyzer (SPREFTA) sample
+# Spresense FFT Analyze sample
 
-# Software Structure of SPREFTA
-SPREFTA uses 2 core. Maincore takes in charge of Signal Processing, Subcore-1 takes in charge of Graphics. To make the software understand easily and simply, these programs are made by Spresense Arduino Library. So you can remake them very easily. 
+# Software Structure of the sample
+This sample code uses 2 core. Maincore takes in charge of Signal Processing, Subcore-1 takes in charge of Visualization. To make the software understand easily and simply, these programs are made by Spresense Arduino Library. So you can remake them very easily. Here are the major specifications of this sample.
 
 
-# Singnal Processing on Maincore
-Signal Processing contains tasks of signal capturing and signal processing. Sensor signal is aquired by Spresense micropone interface supporting sampling rate of 16kHz, 48kHz and 192 kHz. SPREFTA supports digital fiters like a high pass and a low pass filter and the fast fourie transformation and so on. Here is the major speification of SPREFTA.
-
-## Major Specification
-||Specification|note|
+## Major functions of this sample
+|Functions|Parameters|note|
 |---:|-------|------|
 |Input Channel|up to 4 channel||
 |Sampling Rate|16kHz, 48kHz, 192kHz||
 |Lines for Singal Processing |100,200,400,800,1600|256,512,1024,2046,4096 samples|
-|Low pass filter|1kHz,2kHz,5kHz,10kHz|Programable, see the source code for the detail|
-|High pass filter|10Hz, 15Hz, ..|Programable, see the source code for the detail|
-|Fast Fourie Transform|Rectangular, Hanning, Hamming window|Flat-top will support soon|
-|Dual signal analysis|Display dual signals in frequecny graphs to compare the signal characteristics|
-|Orbit analysis|Plot the dual signal in the graph to analyze colleration of two signals||
+|Low pass filter|1k,2k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
+|High pass filter|5,10,15,20,100,200,500,1k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
+|Fast Fourier Transform|Rectangular, Hanning, Hamming window|Flat-top will support soon|
+|Dual signal analysis||Dual FFT graph to compare 2 signals|
+|Orbit analysis||Plot 2 signals on X-Y coordinates to analyze the correlation|
 
-## Signal capturing
-Signals captured by Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstucled by any tasks. Imagine that capturing signal of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. The structure of the signal capturing is like this.
+
+# Singnal Processing on Maincore
+Signal Processing contains signal capturing part and signal processing part. Sensor signal comes from Spresense microphone interface supporting sampling rate of 16kHz, 48kHz, and 192 kHz. This sample includes digital filters like a high pass and a low pass filter and the fast Fourier transformation and so on. 
+
+
+## The processing flow of the signal capturing
+Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And since both the buffer size of the readframe and ring buffer for this signal processing is very important, the size should not be changed. If you change, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. The below is the source code of the signal capturing.
 
 ```
 while(bProcessing) { 
@@ -54,7 +56,7 @@ while(bProcessing) {
 ```
 
 # Signal Processing
-Signal processing is done by as per a request from subcore-1, and the communication between the maincore and the subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread. The main loop on the maincore is very simple. Checking requests from the subcore-1 constantly, when a request arrived, check the sid 
+Signal processing is done as per a request from Subcore-1, and the communication between Maincore and Subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread explained above. The main loop on Maincore is very simple. Checking requests from Subcore-1 constantly, when a request arrived, check the sid to detect what kind of process Subcore-1 needs, and do that.
 
 
 ```
@@ -226,7 +228,7 @@ void loop() {
 }
 ```
 
-Signal processing are different implemented manner as per each application on subcore-1. Generally, subcore applications request different data, so signal processing should be implemented differently. When taking signal from RingBuffer, you should take care to handle. Since the each process is running on the main loop, extracting signal data from the ringbuffer managed by independent thread should be protected by mutex to pick up safely.
+Signal processing is different implemented manner as per each application on Subcore-1. Generally, each Subcore applications request different data, so the signal processing should be implemented differently. However, there is one important thing to do the signal processing. When taking the signal from RingBuffer, you should take care to avoid conflict between the threads. Remember that the signal capturing is running on a different thread.  On the other hand, each signal processing is running on the main loop. So when extracting signal data from the Ringbuffer managed by the signal capturing thread should be protected by a mutex to pick up safely. Furthermore, the extracting process should be very short not to obstacle the capturing process.
 
 ```
 void calc_sensor_data(struct SensorData* sdata) {
@@ -394,11 +396,11 @@ void get_rawfil_data(struct WavWavData* wdata) {
 ```
 
 # Commnication between Maincore and Subcore-1
-Commnication between Maincore and Subore-1 is based on a master-slave model. The master is subcore-1, the slave is maincore. The main loop of the subcore-1 takes in charge of  managing communication to Maincore and reflect the receiving data to the display. The applicaion data is identified by sid. There is a rule to assigned the request id (application id), the id of applications requiring FFT should be numbered between 0x10 to 0x70. The reason is that the maincore prepares the resource for FFT by looking this id. 
+Communication between Maincore and Subcore-1 is based on a master-slave model. The master is Subcore-1, the slave is Maincore. The main loop of the Subcore-1 takes in charge of managing communication to the Maincore and reflects the receiving data to the LCD display. The application data is identified by SID that there is a rule to assign. The SIDs of applications requiring FFT should be numbered between 0x10 to 0x70. The reason is that Maincore prepares the resource for FFT by looking at this id. 
 
-The process of the main loop on subcore-1 is also simple. Checking a change of the page at first, secondly if an application requiring processed data is running, requests data to maincore. Thirdly checking the data arriaval from maincore and if it threre, reflecting it to the application. 
+The process of the main loop on Subcore-1 is also simple. Firstly, checking the page change request. Secondly, if an application requiring signal processing is running, send the data request to Maincore. Thirdly, checking the data arrival, and reflecting it to the application. 
 
-To say it simply, sending requests to maincore and receiving reqeusted data from maincore are done by the mainloop.
+To say it simply, sending data requests to Maincore and receiving the requested data is the main loop task.
 
 ```
 void loop() {
@@ -576,18 +578,18 @@ void loop() {
 }
 ```
 
-# Construction process of applications on subcore
-The application framework of SPREFTA is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps.ino. The view is functions in ScreenElements.ino. Addition to that, The control buttons are handled by ScreenElements. The view is made by the builder functions in BuildScreen.ino. The construction process of an application is as follows. 
+# Construction process of applications on Subcore01
+The application framework of this sample is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps. The view functions are defined in ScreenElements. And the navigation buttons are handled by ScreenElements. The views are made by the builder functions in BuildScreen. The construction process of an application is as follows. 
 
-1. A user changes an application page by pressing button "NEXT" or "BACK".
-2. The main loop detects the change request and send the request to get JSON data of the next page.
+1. A user changes an application page by pressing the button "NEXT" or "BACK".
+2. The main loop detects the change request and sends the request to get JSON data for the next page.
 3. Maincore gets the request, sends the JSON data back to Subcore-1
 4. Subcore-1 gets the data in the main loop, then starts to build the view by using JSON doc. During the building the view, if the application needs the signal processing data, builder sets a data-request by calling startApplication(). 
-5. The main loop detects the data request by calling isRunningApplication(), and send the request to Maincore.
+5. The main loop detects the data request by calling isRunningApplication(), and sends the request to Maincore.
 6. Maincore gets the request, sends the signal processed data back to Subcore-1.
-7. The main loop receives the data and plot the data on LCD by appDrawxxxx functions
+7. The main loop on Subcore-1 receives the data and plot the data on the LCD display by appDrawxxxx functions
 8. Loop from (5) to (7) until the end of the application by User instruction pressing "NEXT" or "BACK"
 
-When a user presses "NEXT" or "BACK" button, the framework makes the applicatioon loop go back to (1) and stops the application at the (2) step.
+When a user presses the "NEXT" or "BACK" button, the framework makes the application-loop go back to (1) and stops the application at the (2) step.
 
 
