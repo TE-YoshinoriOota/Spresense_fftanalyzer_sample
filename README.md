@@ -7,8 +7,8 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 ## Major functions of this sample
 |Functions|Parameters|note|
 |---:|-------|------|
-|Input Channel|up to 4 channel||
-|Sampling Rate|16kHz, 48kHz, 192kHz||
+|Input Channel|up to 4 channel|Voltage level of michrophone interface is +/-0.45V|
+|Sampling Rate|16kHz, 48kHz, 192kHz|This sample supports only 16bit depth|
 |Lines for Singal Processing |100,200,400,800,1600|256,512,1024,2046,4096 samples|
 |Low pass filter|1k,2k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
 |High pass filter|5,10,15,20,100,200,500,1k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
