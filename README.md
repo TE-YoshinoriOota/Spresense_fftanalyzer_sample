@@ -602,8 +602,8 @@ void loop() {
 }
 ```
 
-## Visalizaation process on Subcore-1
-The application framework of this sample is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps. The view functions are defined in ScreenElements. And the navigation buttons are handled by ScreenElements. The views are made by the builder functions in BuildScreen. The construction process of an application is as follows. 
+## Visalization process on Subcore-1
+The visualization process of this sample is relatively complicated. The application model is based on Model-View-Controller. The main loop that manages Application Life Cycle is the controller needless to say. The model in charge of visualizing signal processed data is appDrawxxx functions implemented in ScreenApps file. The view functions that manage the layout of the application are defined in ScreenElements file. (The navigation buttons are handled by ScreenElements) The views are made by the builder functions in BuildScreen file. The construction process of an application is as follows. 
 
 1. A user changes an application page by pressing the button "NEXT" or "BACK".
 2. The main loop detects the change request and sends the request to get JSON data for the next page.
