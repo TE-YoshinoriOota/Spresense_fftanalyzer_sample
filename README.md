@@ -34,7 +34,7 @@ Here are the screenshots of this sample application.
 ### Dual FFT Application
 ![Dual FFT](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/4_fft_dual.jpg)
 
-## Orbit Application
+### Orbit Application
 ![Orbit](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/5_orbit.jpg)
 
 
@@ -42,7 +42,7 @@ Here are the screenshots of this sample application.
 Signal Processing contains signal capturing part and signal processing part. Sensor signal comes from Spresense microphone interface supporting sampling rate of 16kHz, 48kHz, and 192 kHz. This sample includes digital filters like a high pass and a low pass filter and the fast Fourier transformation and so on. 
 
 
-## The processing flow of the signal capturing
+## Ssignal capturing part on Maincore
 Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And since both the buffer size of the readframe and ring buffer for this signal processing is very important, the size should not be changed. If you change, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. The below is the source code of the signal capturing.
 
 ```
@@ -76,7 +76,7 @@ while(bProcessing) {
 }
 ```
 
-# Signal Processing
+## Signal Processing part on Maincore
 Signal processing is done as per a request from Subcore-1, and the communication between Maincore and Subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread explained above. The main loop on Maincore is very simple. Checking requests from Subcore-1 constantly, when a request arrived, check the sid to detect what kind of process Subcore-1 needs, and do that.
 
 
@@ -416,7 +416,10 @@ void get_rawfil_data(struct WavWavData* wdata) {
 }
 ```
 
-# Commnication between Maincore and Subcore-1
+# Visualization on Subcore-1
+Subcore-1 takes charge of the visualization of signal processed data. This application contains 3 parts. Application Life Cycle Management related to the communication part with Maincore.  Visualization part that plots signal processed data. Layouting part that managing information display and parameter inputs, etc... This chapter describes each part.
+
+## Commnication between Maincore and Subcore-1
 Communication between Maincore and Subcore-1 is based on a master-slave model. The master is Subcore-1, the slave is Maincore. The main loop of the Subcore-1 takes in charge of managing communication to the Maincore and reflects the receiving data to the LCD display. The application data is identified by SID that there is a rule to assign. The SIDs of applications requiring FFT should be numbered between 0x10 to 0x70. The reason is that Maincore prepares the resource for FFT by looking at this id. 
 
 The process of the main loop on Subcore-1 is also simple. Firstly, checking the page change request. Secondly, if an application requiring signal processing is running, send the data request to Maincore. Thirdly, checking the data arrival, and reflecting it to the application. 
@@ -599,7 +602,7 @@ void loop() {
 }
 ```
 
-# Construction process of applications on Subcore01
+## Visalizaation process on Subcore-1
 The application framework of this sample is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps. The view functions are defined in ScreenElements. And the navigation buttons are handled by ScreenElements. The views are made by the builder functions in BuildScreen. The construction process of an application is as follows. 
 
 1. A user changes an application page by pressing the button "NEXT" or "BACK".
@@ -612,5 +615,9 @@ The application framework of this sample is relatively complicated. The applicat
 8. Loop from (5) to (7) until the end of the application by User instruction pressing "NEXT" or "BACK"
 
 When a user presses the "NEXT" or "BACK" button, the framework makes the application-loop go back to (1) and stops the application at the (2) step.
+
+## Layouting process on Subcore-1
+Comming soon...
+
 
 
