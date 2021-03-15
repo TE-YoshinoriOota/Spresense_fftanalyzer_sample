@@ -1,4 +1,4 @@
-# Spresense FFT Analyze sample
+# Spresense FFT Analyzer sample
 
 # Software Structure of the sample
 This sample code uses 2 core. Maincore takes in charge of Signal Processing, Subcore-1 takes in charge of Visualization. To make the software understand easily and simply, these programs are made by Spresense Arduino Library. So you can remake them very easily. Here are the major specifications of this sample.
@@ -15,6 +15,26 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 |Fast Fourier Transform|Rectangular, Hanning, Hamming window|Flat-top will support soon|
 |Dual signal analysis||Dual FFT graph to compare 2 signals|
 |Orbit analysis||Plot 2 signals on X-Y coordinates to analyze the correlation|
+
+## Screen Shorts of this examples (still under development)
+This sample is implemented on this package. If you are interested in, please contact Sony Semiconductor Solutions Corp. ![Japanese](https://www.sony-semicon.co.jp/contact/) / ![English](https://www.sony-semicon.co.jp/e/contact/)
+
+![Spresense FFT sample](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/Package.jpg)
+
+### Home Menu
+![Home Menu](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/0_menu.jpg)
+
+### Digital Filter Application
+![Digital Filter](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/1_digialF_filter.jpg)
+
+### FFT Application
+![Single FFT](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/3_fft.jpg)
+
+### Dual FFT Application
+![Dual FFT](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/4_fft_dual.jpg)
+
+## Orbit Application
+![Orbit](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/5_orbit.jpg)
 
 
 # Singnal Processing on Maincore
