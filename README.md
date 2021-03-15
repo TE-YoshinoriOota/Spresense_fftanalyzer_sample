@@ -43,7 +43,7 @@ Signal Processing contains signal capturing part and signal processing part. Sen
 
 
 ## Ssignal capturing part on Maincore
-Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And both the buffer size of the readframe and RingBuffer for this signal processing are very important. If you are not familiar with Spresense Audio system, you should not change the buffer size. If you change without knowledge, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. 
+Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And both the buffer size of the readframe and RingBuffer is very important. If you are not familiar with Spresense Audio system, you should not change the buffer size. If you change without knowledge, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. 
 
 ```
 while(bProcessing) { 
