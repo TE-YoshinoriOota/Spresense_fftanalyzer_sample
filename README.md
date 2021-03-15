@@ -17,7 +17,7 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 |Orbit analysis||Plot 2 signals on X-Y coordinates to analyze the correlation|
 
 ## Screen Shorts of this examples (still under development)
-This sample is implemented on this package. If you are interested in, please contact Sony Semiconductor Solutions Corp. ![Japanese](https://www.sony-semicon.co.jp/contact/) / ![English](https://www.sony-semicon.co.jp/e/contact/)
+This sample is implemented on this package. If you are interested in, please contact Sony Semiconductor Solutions Corp. [Japanese](https://www.sony-semicon.co.jp/contact/) / [English](https://www.sony-semicon.co.jp/e/contact/)
 
 ![Spresense FFT sample](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/Package.jpg)
 
