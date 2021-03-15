@@ -22,7 +22,7 @@ Signal Processing contains tasks of signal capturing and signal processing. Sens
 ## Signal capturing
 Signals captured by Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstucled by any tasks. Imagine that capturing signal of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. The structure of the signal capturing is like this.
 
-'''
+```
 while(bProcessing) { 
 
     err = theAudio->readFrames(pRaw, buffer_size, &read_size);
@@ -51,13 +51,13 @@ while(bProcessing) {
   }
   bThreadStopped = true;  
 }
-'''
+```
 
 # Signal Processing
 Signal processing is done by as per a request from subcore-1, and the communication between the maincore and the subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread. The main loop on the maincore is very simple. Checking requests from the subcore-1 constantly, when a request arrived, check the sid 
 
 
-'''
+```
 void loop() {
   int ret;
   int8_t sid = 0;
@@ -224,11 +224,11 @@ void loop() {
   
   usleep(1); // yield the process to SignalProcessing
 }
-'''
+```
 
 Signal processing are different implemented manner as per each application on subcore-1. Generally, subcore applications request different data, so signal processing should be implemented differently. When taking signal from RingBuffer, you should take care to handle. Since the each process is running on the main loop, extracting signal data from the ringbuffer managed by independent thread should be protected by mutex to pick up safely.
 
-'''
+```
 void calc_sensor_data(struct SensorData* sdata) {
 
   /* get the data from the ringbuffer */
@@ -391,7 +391,7 @@ void get_rawfil_data(struct WavWavData* wdata) {
   wdata->len  = g_samp;
   wdata->df   = (float)(g_rate)/g_samp;  
 }
-'''
+```
 
 # Commnication between Maincore and Subcore-1
 Commnication between Maincore and Subore-1 is based on a master-slave model. The master is subcore-1, the slave is maincore. The main loop of the subcore-1 takes in charge of  managing communication to Maincore and reflect the receiving data to the display. The applicaion data is identified by sid. There is a rule to assigned the request id (application id), the id of applications requiring FFT should be numbered between 0x10 to 0x70. The reason is that the maincore prepares the resource for FFT by looking this id. 
@@ -400,7 +400,7 @@ The process of the main loop on subcore-1 is also simple. Checking a change of t
 
 To say it simply, sending requests to maincore and receiving reqeusted data from maincore are done by the mainloop.
 
-'''
+```
 void loop() {
   int ret;
   int8_t sid = 0x00;
@@ -574,7 +574,7 @@ void loop() {
   
   return;
 }
-'''
+```
 
 # the construction process of applications on subcore
 The application framework of SPREFTA is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps.ino. The view is functions in ScreenElements.ino. Addition to that, The control buttons are handled by ScreenElements. The view is made by the builder functions in BuildScreen.ino. The construction process of an application is as follows. 
