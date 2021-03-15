@@ -579,14 +579,14 @@ void loop() {
 # the construction process of applications on subcore
 The application framework of SPREFTA is relatively complicated. The application model is based on Model-View-Controller. The main loop is the controller needless to say. The model is functions of appDrawxxx implemented in ScreenApps.ino. The view is functions in ScreenElements.ino. Addition to that, The control buttons are handled by ScreenElements. The view is made by the builder functions in BuildScreen.ino. The construction process of an application is as follows. 
 
-(1) A user changes an application page by pressing button "NEXT" or "BACK".
-(2) The main loop detects the change request and send the request to get JSON data of the next page.
-(3) Maincore gets the request, sends the JSON data back to Subcore-1
-(4) Subcore-1 gets the data in the main loop, then starts to build the view by using JSON doc. During the building the view, if the application needs the signal processing data, builder sets a data-request by calling startApplication(). 
-(5) The main loop detects the data request by calling isRunningApplication(), and send the request to Maincore.
-(6) Maincore gets the request, sends the signal processed data back to Subcore-1.
-(7) The main loop receives the data and plot the data on LCD by appDrawxxxx functions
-(8) Loop from (5) to (7) until the end of the application by User instruction pressing "NEXT" or "BACK"
+1. A user changes an application page by pressing button "NEXT" or "BACK".
+2. The main loop detects the change request and send the request to get JSON data of the next page.
+3. Maincore gets the request, sends the JSON data back to Subcore-1
+4. Subcore-1 gets the data in the main loop, then starts to build the view by using JSON doc. During the building the view, if the application needs the signal processing data, builder sets a data-request by calling startApplication(). 
+5. The main loop detects the data request by calling isRunningApplication(), and send the request to Maincore.
+6. Maincore gets the request, sends the signal processed data back to Subcore-1.
+7. The main loop receives the data and plot the data on LCD by appDrawxxxx functions
+8. Loop from (5) to (7) until the end of the application by User instruction pressing "NEXT" or "BACK"
 
 When a user presses "NEXT" or "BACK" button, the framework makes the applicatioon loop go back to (1) and stops the application at the (2) step.
 
