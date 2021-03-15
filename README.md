@@ -43,7 +43,7 @@ Signal Processing contains signal capturing part and signal processing part. Sen
 
 
 ## Ssignal capturing part on Maincore
-Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And since both the buffer size of the readframe and ring buffer for this signal processing is very important, the size should not be changed. If you change, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. The below is the source code of the signal capturing.
+Captured signals via Spresense microphone interface are stored in Ringbuffer prepared for each channel with no conditions. This routine should not be obstructed by any tasks. Imagine that capturing signals of 192kHz in 256 samples, the allowed time for capturing is only 1.3 msec (1/192000 x 256 = 1.3msec). So this routine is implemented on the independent thread with high priority. And both the buffer size of the readframe and RingBuffer for this signal processing are very important. If you are not familiar with Spresense Audio system, you should not change the buffer size. If you change without knowledge, the hardware FIFO buffer will be overflow frequently and it makes you bother to make your application. 
 
 ```
 while(bProcessing) { 
@@ -77,7 +77,7 @@ while(bProcessing) {
 ```
 
 ## Signal Processing part on Maincore
-Signal processing is done as per a request from Subcore-1, and the communication between Maincore and Subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread explained above. The main loop on Maincore is very simple. Checking requests from Subcore-1 constantly, when a request arrived, check the sid to detect what kind of process Subcore-1 needs, and do that.
+Signal processing is done as per a request from Subcore-1, and the communication between Maincore and Subcore-1 is done on the main loop. It means that signal processing is worked on the different thread from the signal capturing thread explained above. The main loop on Maincore is very simple. Checking requests from Subcore-1 constantly, when a request arrived, looking into the sid to detect what kind of process Subcore-1 needs, and do that.
 
 
 ```
@@ -249,7 +249,7 @@ void loop() {
 }
 ```
 
-Signal processing is different implemented manner as per each application on Subcore-1. Generally, each Subcore applications request different data, so the signal processing should be implemented differently. However, there is one important thing to do the signal processing. When taking the signal from RingBuffer, you should take care to avoid conflict between the threads. Remember that the signal capturing is running on a different thread.  On the other hand, each signal processing is running on the main loop. So when extracting signal data from the Ringbuffer managed by the signal capturing thread should be protected by a mutex to pick up safely. Furthermore, the extracting process should be very short not to obstacle the capturing process.
+Signal processing is different implemented manner as per each application on Subcore-1. Generally, each Subcore applications request different data, so the signal processing should be implemented differently. However, there is one important thing you should mind when implements an application. That is the RingBuffer protection. When taking the signal from RingBuffer, you should avoid conflict between the threads of Singal Capturing and Signal Processing. Remember that the Signal Capturing is running on a different high priority thread. On the other hand, Signal Processing is running on the main loop. So when your Signal Processing application picks up signal data from the Ring Buffer managed by the Signal Capturing thread, you should implement to protect the Ring Buffer by a mutex to pick up safely. Needless to say, the picking up process should be very short not to obstacle the Signal Capturing process.
 
 ```
 void calc_sensor_data(struct SensorData* sdata) {
