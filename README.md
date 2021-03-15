@@ -13,8 +13,8 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 |Low pass filter|1k,2k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
 |High pass filter|5,10,15,20,100,200,500,1k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
 |Fast Fourier Transform|Rectangular, Hanning, Hamming window|Flat-top will support soon|
-|Dual signal analysis||Dual FFT graph to compare 2 signals|
-|Orbit analysis||Plot 2 signals on X-Y coordinates to analyze the correlation|
+|Dual signal analysis|line and filter can be set|Dual FFT graph to compare 2 signals|
+|Orbit analysis|Currenly, line can only be set|Plot 2 signals on X-Y coordinates to analyze the correlation|
 
 ## Screen Shorts of this examples (still under development)
 This sample is implemented on this package. If you are interested in, please contact Sony Semiconductor Solutions Corp. [Japanese](https://www.sony-semicon.co.jp/contact/) / [English](https://www.sony-semicon.co.jp/e/contact/)
