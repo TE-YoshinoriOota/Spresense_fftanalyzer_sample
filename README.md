@@ -12,7 +12,7 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 |Lines for Singal Processing |100,200,400,800,1600|256,512,1024,2046,4096 samples|
 |Low pass filter|1k,2k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
 |High pass filter|5,10,15,20,100,200,500,1k,5k,10k,15k,20k (Hz)|if "0" sets to cutoff, the filter will not be applied|
-|Fast Fourier Transform|Rectangular, Hanning, Hamming window|Flat-top will support soon|
+|Fast Fourier Transform|Rectangular, Hanning, Hamming window|Flat-top will be supported soon|
 |Dual signal analysis|line and filter can be set|Dual FFT graph to compare 2 signals|
 |Orbit analysis|Currenly, line can only be set|Plot 2 signals on X-Y coordinates to analyze the correlation|
 
