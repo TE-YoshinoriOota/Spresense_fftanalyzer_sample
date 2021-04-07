@@ -41,10 +41,10 @@ bool putText(int x, int y, String str, int color, int tsize) {
     tft.setTextColor(color);
     tft.setTextSize(tsize);
     tft.println(str);
-    Serial.println("Draw: " + str);
+    MPLog("Draw: %s\n", str.c_str());
     return true;
   }
-  Serial.println("putText error");
+  MPLog("putText error\n");
   return false;
 }
 
@@ -104,10 +104,75 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
 }
 
+/* plot virtical scale */
+void plotvirticalscale(int head, int mag, bool ac) {
+
+  tft.fillRect(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3, head-4
+             , SCREEN_WIDTH-(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3)
+             , FFT_GRAPH_HEIGHT+7, ILI9341_BLACK);
+
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH, head
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3, head
+             , ILI9341_YELLOW);  
+
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH, head + FFT_GRAPH_HEIGHT/2
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3, head + FFT_GRAPH_HEIGHT/2
+             , ILI9341_YELLOW); 
+  
+             
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH, head + FFT_GRAPH_HEIGHT
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3, head + FFT_GRAPH_HEIGHT
+             , ILI9341_YELLOW);  
+
+  if (ac == true) {
+    float maxVoltage = 45.5/mag;
+    String maxLabel;
+    if (maxVoltage > 1.0) {
+      maxLabel = String(" ") + String(maxVoltage, 1) + String(" mV");
+    } else {
+      maxLabel = String(" ") + String(maxVoltage*1000, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head -4
+               , maxLabel, ILI9341_YELLOW, 1);
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head + FFT_GRAPH_HEIGHT/2 -4
+               , " 0.0", ILI9341_YELLOW, 1);   
+    float minVoltage = -45.5/mag;
+    String minLabel;
+    if (minVoltage < -1.0) {
+      minLabel = String(minVoltage, 1) + String(" mV");
+    } else {
+      minLabel = String(minVoltage*1000, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head + FFT_GRAPH_HEIGHT -4
+               , minLabel, ILI9341_YELLOW, 1);
+  } else {
+    float maxVoltage = 45.5/mag;
+    String maxLabel;
+    if (maxVoltage > 1.0) {
+      maxLabel = String(" ") + String(maxVoltage, 1) + String(" mV");
+    } else {
+      maxLabel = String(" ") + String(maxVoltage*1000, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head -4
+               , maxLabel, ILI9341_YELLOW, 1);         
+    float midVoltage = 22.750/mag;
+    String midLabel;
+    if (midVoltage > 1.0) {
+      midLabel = String(" ") + String(midVoltage, 1) + String(" mV");
+    } else {
+      midLabel = String(" ") + String(midVoltage*1000, 1) + String(" uV");      
+    }   
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head + FFT_GRAPH_HEIGHT/2 -4
+               , midLabel, ILI9341_YELLOW, 1);         
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head + FFT_GRAPH_HEIGHT -4
+               , " 0.0", ILI9341_YELLOW, 1);
+  }
+}
+
 
 /* plot a time scale on a liner graph for WAV applications */
 void plottimescale(float df, int len, int head, bool redraw) {
-  if (plotscale1_done == true) return;
+  if (plotscale0_done == true) return;
   float srate = df*len; // sampling rate
   float dt = 1/srate*1000;  // misec time for capturing 1 sample
   float max_time = dt*len;
@@ -228,6 +293,31 @@ void plotlogscale(int interval, float df, double f_min_log, int head, bool redra
     plotscale1_done = true;
 }
 
+
+/* plot orbit scale for orbit graph */
+void plotorbitscale(int mag) {
+  String unitText;
+  MPLog("Orbit magnification: %d\n", mag);
+
+  tft.fillRect(ORBIT_UNIT_R_SIDE, ORBIT_GRAPH_YCENTER, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
+  tft.fillRect(ORBIT_UNIT_L_SIDE, ORBIT_GRAPH_YCENTER, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
+  tft.fillRect(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_U_HEAD, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
+  tft.fillRect(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_L_HEAD, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
+
+  String maxValue = String(ORBIT_LIMIT_UM / mag) + String(" um");
+  unitText = "+" + maxValue;
+  putText(ORBIT_UNIT_R_SIDE, ORBIT_GRAPH_YCENTER, unitText, ILI9341_YELLOW, 1);
+  
+  unitText = "-" + maxValue;
+  putText(ORBIT_UNIT_L_SIDE, ORBIT_GRAPH_YCENTER, unitText, ILI9341_YELLOW, 1);
+
+  unitText = "+" + maxValue;
+  putText(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_U_HEAD, unitText, ILI9341_YELLOW, 1);
+
+  unitText = "-" + maxValue;
+  putText(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_L_HEAD, unitText, ILI9341_YELLOW, 1);
+  
+}
 
 /* Helper function for drawing lines on a graph based on Bresenham's line algorithm */
 #ifndef _swap_int16_t

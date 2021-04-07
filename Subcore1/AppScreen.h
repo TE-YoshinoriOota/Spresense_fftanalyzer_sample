@@ -105,9 +105,9 @@
 #define MON_BOX0_HEAD  (MON_ELEM0_HEAD-MON_MARGIN) 
 #define MON_BOX1_HEAD  (MON_ELEM1_HEAD-MON_MARGIN) 
 #define MON_BOX2_HEAD  (MON_ELEM2_HEAD-MON_MARGIN) 
-#define MON_BOX_WIDTH  (100)
+#define MON_BOX_WIDTH  (160)
 #define MON_BOX_HEIGHT (30)
-#define MON_UNIT_SIDE  (150)
+#define MON_UNIT_SIDE  (200)
 #define MON_UNIT0_HEAD  MON_BOX0_HEAD+MON_BOX_HEIGHT/2
 #define MON_UNIT1_HEAD  MON_BOX1_HEAD+MON_BOX_HEIGHT/2
 #define MON_UNIT2_HEAD  MON_BOX2_HEAD+MON_BOX_HEIGHT/2
@@ -133,10 +133,10 @@
 #define FFT_UNIT7_SIDE    FFT_UNIT6_SIDE + 32
 #define FFT_UNIT0_HEAD    FFT_GRAPH0_HEAD + FFT_BOX_HEIGHT + 2
 #define FFT_UNIT1_HEAD    FFT_GRAPH1_HEAD + FFT_BOX_HEIGHT + 2
-
+#define FFT_VTEXT_MARGIN (4)
 
 /* FFT and WAV graph realted parameters */  
-#define WAV_MAX_AMP   2000
+#define WAV_MAX_AMP   3000
 #define WAV_MIN_AMP   100
 #define WAV_AMP_STEP  100
 #define FFT_MAX_AMP   1000
@@ -158,7 +158,16 @@
 #define ORBIT_GRAPH_RADIUS   (64)
 #define ORBIT_GRAPH_SIZE  ORBIT_GRAPH_RADIUS*2
 #define ORBIT_SIZE  (ORBIT_GRAPH_RADIUS+ORBIT_MARGIN)*2
-
+#define ORBIT_LIMIT_UM       (10142)
+#define ORBIT_TEXT_BOXW      (60)
+#define ORBIT_TEXT_BOXH      (10)
+#define ORBIT_UNIT_R_SIDE  ORBIT_GRAPH_XCENTER+ORBIT_GRAPH_RADIUS+ORBIT_MARGIN
+#define ORBIT_UNIT_L_SIDE  ORBIT_GRAPH_XCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXW
+#define ORBIT_UNIT_U_HEAD  ORBIT_GRAPH_YCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXH
+#define ORBIT_UNIT_L_HEAD  ORBIT_GRAPH_YCENTER+ORBIT_GRAPH_RADIUS+ORBIT_MARGIN
+#define ORBIT_MIN_AMP        (1)
+#define ORBIT_MAX_AMP        (100)
+#define ORBIT_AMP_STEP       (10)
 
 /* MULTICORE MESSAGE ID */
 /* 0x10 - 0x70 is reserved for FFT applications */
@@ -168,12 +177,14 @@
 #define SID_REQ_RAW_FIL  (0x04)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
+#define SID_REQ_ORBITDT  (0x30)
 
 #define APP_ID_MONDATA  SID_REQ_MONDATA
 #define APP_ID_WAV_FFT  SID_REQ_WAV_FFT
 #define APP_ID_FFT_FFT  SID_REQ_FFT_FFT
 #define APP_ID_WAV_WAV  SID_REQ_WAV_WAV
 #define APP_ID_RAW_FIL  SID_REQ_RAW_FIL
+#define APP_ID_ORBITDT  SID_REQ_ORBITDT
 
 
 /* BUTTON PINS */
@@ -227,6 +238,15 @@ struct WavWavData {
   float df;
 };
 
+struct OrbitData {
+  float acc0;
+  float vel0;
+  float dis0;
+  float acc1;
+  float vel1;
+  float dis1;
+};
+
 static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
 static uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]; 
 
@@ -249,6 +269,7 @@ static int      fftamp0 = FFT_MIN_AMP;
 static int      fftamp1 = FFT_MIN_AMP;
 static int      wavamp0 = WAV_MIN_AMP;
 static int      wavamp1 = WAV_MIN_AMP;
+static int      orbitamp = ORBIT_MIN_AMP;
 static bool     bLogDisplay = true;
 
 /* to avoid conflict between the main loop and interrupt function */
@@ -284,8 +305,8 @@ void buildNextBackConnection(DynamicJsonDocument* doc);
 void appSensorValue(float acc, float vel, float dis);
 void appDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df);
 void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
-void appDrawOrbitGraph(float* pWav, float* pSubWav, int len, float df);
 void appDrawFilterGraph(float* pWav0, float*pSubWav, int len1, float df);
+void appDrawOrbitGraph(struct OrbitData* odata);
 
 /* helper functions */
 void putHorizonLine(int h, int color);
@@ -301,7 +322,7 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
 
-
+void plotvirticalscale(int head, int mag, bool ac);
 void plottimescale(float df, int len, int head, bool redraw);
 void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
 void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);

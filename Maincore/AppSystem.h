@@ -1,10 +1,17 @@
 #ifndef __APP_SYSTEM_HEADER_GUARD__
 #define __APP_SYSTEM_HEADER_GUARD__
 
+#define USE_SD_CARD
+
 #include <ArduinoJson.h>
-#include <SDHCI.h>
 #include <MP.h>
 #include <Audio.h>
+
+#ifdef USE_SD_CARD
+#include <SDHCI.h>
+#else
+#include <Flash.h>
+#endif
 
 /* Use CMSIS library */
 #define ARM_MATH_CM4
@@ -31,6 +38,7 @@
 #define SID_REQ_RAW_FIL  (0x04)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
+#define SID_REQ_ORBITDT  (0x30)
 
 /* difinitions for application */
 #define SUBCORE (1)
@@ -77,7 +85,19 @@ struct WavWavData {
   float df;
 };
 
+struct OrbitData {
+  float acc0;
+  float vel0;
+  float dis0;
+  float acc1;
+  float vel1;
+  float dis1;
+};
+
+
+#ifdef USE_SD_CARD
 SDClass theSD;
+#endif
 
 /*　json documents */
 String dfile = "AA000.txt";
@@ -115,6 +135,9 @@ static FFTClassKai *fft = NULL;
 /* For WAV processing */
 static struct WavWavData wav2Data;
 
+/* For Orbit processing */
+static struct OrbitData orbitData;
+
 /* System properties */
 static int  g_sid;
 static int  g_sens;
@@ -143,7 +166,7 @@ void calc_sensor_data(struct SensorData* sdata);
 void calc_fft_data(struct FftWavData* fdata);
 void calc_fft2_data(struct FftFftData* fdata);
 void get_wav2_data(struct WavWavData* wdata);
-
+void calc_orbit_data(struct OrbitData* odata);
 
 
 #endif /* __APP_SYSTEM_HEADER_GUARD__ */

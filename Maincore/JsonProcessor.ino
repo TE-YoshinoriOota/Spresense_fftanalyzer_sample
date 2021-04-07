@@ -4,28 +4,32 @@
 void update_system_properties(int8_t sid, DynamicJsonDocument* sys) {
   int ch, line;
   /* update System Properties */
-  g_sid   = sid;              // Serial.println("[Main] sid : " + String(g_sid));
-  g_sens  = (*sys)["sens"];   // Serial.println("[Main] sens: " + String(g_sens));
-  g_gain  = (*sys)["gain"];   // Serial.println("[Main] gain: " + String(g_gain));
-  g_chnm  = (*sys)["chnm"];   Serial.println("[Main] chnm: " + String(g_chnm));
+  g_sid   = sid;              // MPLog("sid : %d\n", g_sid);
+  g_sens  = (*sys)["sens"];   // MPLog("sens: %d\n", g_sens);
+  g_gain  = (*sys)["gain"];   // MPLog("gain: %d\n", g_gain);
+  g_chnm  = (*sys)["chnm"];   MPLog("chnm: %d\n", g_chnm);
   ch      = (*sys)["ch"];     // 
-  g_ch0   = ch & 0x00ff;      Serial.println("[Main] ch0 : " + String(g_ch0));
-  g_ch1   = ch >> 8;          // Serial.println("[Main] ch1 : " + String(g_ch1));
-  g_rate  = (*sys)["rate"];   Serial.println("[Main] rate: " + String(g_rate));
+  g_ch0   = ch & 0x00ff;      MPLog("ch0 : %d\n", g_ch0);
+  g_ch1   = ch >> 8;          // MPLog("ch1 : %d\n", g_ch1);
+  g_rate  = (*sys)["rate"];   MPLog("rate: %ld\n", g_rate);
   line    = (*sys)["line"];   //
-  g_samp  = line*2.56;        Serial.println("[Main] samp: " + String(g_samp));
-  g_lpf   = (*sys)["lpf"];    // Serial.println("[Main] lpf : " + String(g_lpf));
-  g_hpf   = (*sys)["hpf"];    // Serial.println("[Main] hpf : " + String(g_hpf));
+  g_samp  = line*2.56;        MPLog("samp: %d\n", g_samp);
+  g_lpf   = (*sys)["lpf"];    // MPLog("lpf : %d\n", g_lpf);
+  g_hpf   = (*sys)["hpf"];    // MPLog("hpf : %d\n", g_hpf);
 }
 
 void readSysprop(int8_t sid, DynamicJsonDocument* doc) {
   
   File mySysprop;
   sfile = "sys.txt";
-  Serial.println("Open system file : " + sfile);
+  MPLog("Open system file : %s\n", sfile);
+#ifdef USE_SD_CARD
   mySysprop = theSD.open(sfile, FILE_READ);
+#else
+  mySysprop = Flash.open(sfile, FILE_READ);
+#endif
   if (!mySysprop) {
-    Serial.println("Cannot open " + sfile);
+    MPLog("Cannot open %s\n", sfile.c_str());
     while (true) { 
       error_notifier(JSON_ERROR);
     }
@@ -34,7 +38,7 @@ void readSysprop(int8_t sid, DynamicJsonDocument* doc) {
   while (mySysprop.available()) strSysprop += char(mySysprop.read());
   DeserializationError error = deserializeJson(*doc, strSysprop);
   if (error) {
-    Serial.println("deserializeJson() failed: " + String(error.f_str()));
+    MPLog("deserializeJson() failed: %s\n", error.f_str());
     while (true) {
       error_notifier(JSON_ERROR);
     }
@@ -51,10 +55,14 @@ void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
   /* Read the current system property at first */
   File mySysprop;
   sfile = "sys.txt";
-  Serial.println("[Main] Open system file : " + sfile);
+  MPLog("Open system file : %s\n", sfile.c_str());
+#ifdef USE_SD_CARD
   mySysprop = theSD.open(sfile, FILE_READ);
+#else
+  mySysprop = Flash.open(sfile, FILE_READ);
+#endif
   if (!mySysprop) {
-    Serial.println("[Main] Cannot open " + sfile);
+    MPLog("Cannot open %s\n", sfile.c_str());
     while (true) {
       error_notifier(FILE_ERROR);
     }
@@ -64,7 +72,7 @@ void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
   while (mySysprop.available()) strSysprop += char(mySysprop.read());
   DeserializationError error = deserializeJson(*doc, strSysprop);
   if (error) {
-    Serial.println("[Main] deserializeJson() failed: " + String(error.f_str()));
+    MPLog("deserializeJson() failed: %s\n", error.f_str());
     while (true) error_notifier(JSON_ERROR);
   }
   mySysprop.close();
@@ -72,17 +80,25 @@ void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
   /* update the system properties according to the response */
   char* label = res->label;
   int   value = res->value;
+#ifdef USE_SD_CARD
   if (theSD.exists(sfile)) theSD.remove(sfile);
-  Serial.println("[Main] Update System Property File : " + sfile);
-  Serial.println("[Main] " + String(label) + ":" + String(value));
+#else
+  if (Flash.exists(sfile)) Flash.remove(sfile);
+#endif
+  MPLog("Update System Property File : %s\n", sfile.c_str());
+  MPLog("%s : %d\n", label, value);
 
   int8_t appid = (*doc)["id"];
   appid /= 100;
   (*doc)["app"] = appid;
   (*doc)[label] = value;
+#ifdef USE_SD_CARD
   mySysprop = theSD.open(sfile , FILE_WRITE);
+#else
+  mySysprop = Flash.open(sfile , FILE_WRITE);
+#endif
   if (!mySysprop) {
-    Serial.println("[Main] Cannot open " + sfile);
+    MPLog("Cannot open %s\n", sfile.c_str());
     while (true) {
       error_notifier(FILE_ERROR);
     }
@@ -90,7 +106,7 @@ void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
 
   size_t wsize = serializeJson((*doc), mySysprop);
   if (wsize == 0) {
-    Serial.print("[Main] serializeJson() failed: ");
+    MPLog("serializeJson() failed: ");
     while (true) {
       error_notifier(JSON_ERROR);
     }
@@ -104,7 +120,7 @@ DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res) 
  
   File myJson;
   if (res == NULL) {
-    // Serial.println("[Main] Response is null. Open the home menu");
+    // MPLog("Response is null. Open the home menu\n");
     dfile = "AA000.txt";
   } else {
     int cur0 = res->cur0;
@@ -112,14 +128,22 @@ DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res) 
     int id = res->next_id;
 
     /* update the document properties according to the response */
+#ifdef USE_SD_CARD
     if (theSD.exists(dfile)) theSD.remove(dfile);
-    Serial.println("[Main] Update json file : " + dfile);
+#else
+    if (Flash.exists(dfile)) Flash.remove(dfile);
+#endif
+    MPLog("Update json file : %s", dfile.c_str());
     (*doc)["cur0"] = cur0;
     (*doc)["cur1"] = cur1;
+#ifdef USE_SD_CARD
     myJson = theSD.open(dfile , FILE_WRITE);
+#else
+    myJson = Flash.open(dfile , FILE_WRITE);
+#endif
     size_t wsize = serializeJson((*doc), myJson);
     if (wsize == 0) {
-      Serial.print("[Main] serializeJson() failed: ");
+      MPLog("serializeJson() failed: ");
       while (true) {
         error_notifier(JSON_ERROR);
       }
@@ -132,10 +156,14 @@ DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res) 
   }
     
   /* Open the new json file for the request to change page from Subcore */
-  Serial.println("[Main] Open json file : " + dfile);
+  MPLog("Open json file : %s\n", dfile.c_str());
+#ifdef USE_SD_CARD
   myJson = theSD.open(dfile, FILE_READ);
+#else
+  myJson = Flash.open(dfile, FILE_READ);
+#endif
   if (!myJson) {
-    Serial.println("[Main] Cannot open " + dfile);
+    MPLog("Cannot open %s\n", dfile.c_str());
     while (true) {
       error_notifier(FILE_ERROR);
     }
@@ -145,7 +173,7 @@ DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res) 
   while (myJson.available()) strJson += char(myJson.read());
   DeserializationError error = deserializeJson(*doc, strJson);
   if (error) {
-    Serial.println("[Main] deserializeJson() failed: " + String(error.f_str()));
+    MPLog("deserializeJson() failed: %s\n", error.f_str());
     while (true) {
       error_notifier(JSON_ERROR);
     }

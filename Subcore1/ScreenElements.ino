@@ -1,5 +1,7 @@
 #include "AppScreen.h"
 
+// #define DEMO_SETTING
+
 DynamicJsonDocument* doc;
 
 
@@ -53,9 +55,14 @@ static void updateB1() {
     if (++cur1 == item1_num) cur1 = 0;
     curOperation(cur0, cur1);
     break;   
+  case SCR_TYPE_ORBT:
+    pthread_mutex_lock(&mtx);
+    if (orbitamp == ORBIT_MAX_AMP) orbitamp = ORBIT_MIN_AMP;
+    orbitamp += ORBIT_AMP_STEP;
+    pthread_mutex_unlock(&mtx);
+    break;
   case SCR_TYPE_WVFT:
   case SCR_TYPE_FFT2:
-  case SCR_TYPE_ORBT:
   case SCR_TYPE_FLTR:
     pthread_mutex_lock(&mtx);
     if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
@@ -145,10 +152,19 @@ void clearScreen(DynamicJsonDocument* jdoc) {
   cur1 = 0;
   backScreen = -1;
   doc = jdoc;
+#ifdef DEMO_SETTING
+  fftamp0 = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp0 = WAV_MAX_AMP;
+  fftamp1 = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp1 = WAV_MAX_AMP;
+  orbitamp = ORBIT_MIN_AMP;
+#else
   fftamp0 = FFT_MIN_AMP;
   wavamp0 = WAV_MIN_AMP;
   fftamp1 = FFT_MIN_AMP;
   wavamp1 = WAV_MIN_AMP;
+  orbitamp = ORBIT_MIN_AMP;
+#endif
   plotscale0_done = false;
   plotscale1_done = false;
   memset(inpsel, 0, sizeof(uint16_t)*100);
@@ -249,7 +265,7 @@ void buildInput(DynamicJsonDocument* doc) {
 void buildMenu(DynamicJsonDocument* doc) {
   item0_num = (*doc)["item_num"];
   cur0 = (*doc)["cur0"];
-  Serial.println("SELECTION ITEM :" + String(item0_num));
+  MPLog("SELECTION ITEM : %d\n", item0_num);
   for (int i = 0; i < item0_num; ++i) {
     String item = "item" + String(i);
     char* item_c = (*doc)[item.c_str()];
@@ -265,8 +281,8 @@ void buildDMenu(DynamicJsonDocument* doc) {
   item1_num = (*doc)["item1_num"];
   cur0 = (*doc)["cur0"];
   cur1 = (*doc)["cur1"];
-  Serial.println("SELECTION ITEM0 :" + String(item0_num));
-  Serial.println("SELECTION ITEM1 :" + String(item0_num));
+  MPLog("SELECTION ITEM0 : %d\n", item0_num);
+  MPLog("SELECTION ITEM1 : %d\n", item1_num);
   for (int i = 0; i < item0_num; ++i) {
     String item = "item0_" + String(i);
     char* item_c = (*doc)[item.c_str()];
@@ -286,9 +302,9 @@ void buildMonitor(DynamicJsonDocument* doc) {
   tft.drawRect(MON_BOX_SIDE, MON_BOX0_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX1_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX2_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
-  putText(MON_UNIT_SIDE, MON_ELEM0_HEAD, String("m/s^2"), ILI9341_WHITE, 2);
-  putText(MON_UNIT_SIDE, MON_ELEM1_HEAD, String("m/s"), ILI9341_WHITE, 2);
-  putText(MON_UNIT_SIDE, MON_ELEM2_HEAD, String("m"), ILI9341_WHITE, 2);
+  putText(MON_UNIT_SIDE, MON_ELEM0_HEAD, String("m/s2"), ILI9341_WHITE, 2);
+  putText(MON_UNIT_SIDE, MON_ELEM1_HEAD, String("mm/s"), ILI9341_WHITE, 2);
+  putText(MON_UNIT_SIDE, MON_ELEM2_HEAD, String("um"), ILI9341_WHITE, 2);
 }
 
 
@@ -307,7 +323,7 @@ void buildSpace(DynamicJsonDocument* doc) {
 /* Building a sign of selected channel */
 void buildChStatus(DynamicJsonDocument* doc) {
   int ch_disp = (*doc)["ch_disp"];
-  Serial.println("CHANNEL DISPLAY :" + String(ch_disp));
+  MPLog("CHANNEL DISPLAY : %d\n", ch_disp);
   for (int i = 0; i < ch_disp; ++i) {
     String ch = "ch" + String(i);
     int8_t ich = (*doc)[ch.c_str()];
@@ -324,7 +340,7 @@ void buildButton(DynamicJsonDocument* doc) {
   char* b1 = (*doc)["B1"];
   char* b2 = (*doc)["B2"];
   char* b3 = (*doc)["B3"];
-  Serial.println("Build Buttons"); 
+  MPLog("Build Buttons\n"); 
   putHorizonLine(BUTTON_DECO_LINE, ILI9341_YELLOW);  
   putText(BUTTON0_SIDE, BUTTON_HEAD, b0, ILI9341_CYAN, 2);
   putText(BUTTON1_SIDE, BUTTON_HEAD, b1, ILI9341_CYAN, 2);

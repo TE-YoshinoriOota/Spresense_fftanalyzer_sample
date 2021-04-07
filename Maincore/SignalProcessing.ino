@@ -1,5 +1,11 @@
 #include "AppSystem.h"
 
+#define SIG_PROCESSING_PTHREAD
+
+#ifdef SIG_PROCESSING_PTHREAD
+#include <pthread.h>
+pthread_t sig_thread;
+#endif
 
 static uint32_t last_time; // To measure the processing time
 void init_processing(int8_t sid, DynamicJsonDocument* sys) {
@@ -26,7 +32,7 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   pTmp = (float*)malloc(sizeof(float)*g_samp);
   ringbuff = new RingBuff[g_chnm](ringbuff_size); // keep double space
   if (pRaw == NULL || pWav == NULL || pSubWav == NULL || pTmp == NULL || ringbuff == NULL) {
-    Serial.println("[Main] not enough memory");
+    MPLog("not enough memory\n");
     while (true) {
       error_notifier(MEM_ERROR);
     }
@@ -38,8 +44,8 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   memset(pTmp, 0, sizeof(float)*g_samp);
 
   /* Filter Initialization */
-  Serial.println("g_lpf: " + String(g_lpf));
-  Serial.println("g_hpf: " + String(g_hpf));
+  MPLog("g_lpf: %d\n", g_lpf);
+  MPLog("g_hpf: %d\n", g_hpf);
   if (g_lpf != 0) {
     lpf = new IIRClassKai();
     lpf->begin(TYPE_LPF, g_lpf, g_rate, 0.5, g_samp, Planar);
@@ -50,7 +56,7 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   }
 
   /* Setup Audio Libraries */
-  Serial.println("[Main] theAudio->begin()");
+  MPLog("theAudio->begin()\n");
   theAudio->begin();
   if (g_rate > 48000) {
     theAudio->setRenderingClockMode(AS_CLKMODE_HIRES);
@@ -58,18 +64,22 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     theAudio->setRenderingClockMode(AS_CLKMODE_NORMAL);
   }
   
-  Serial.println("[Main] theAudio->setRecorderMode()");
+  MPLog("theAudio->setRecorderMode()\n");
   theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC);
-  err = theAudio->initRecorder(AS_CODECTYPE_PCM ,"/mnt/sd0/BIN" ,g_rate ,g_chnm);                             
+#ifdef USE_SD_CARD
+  err = theAudio->initRecorder(AS_CODECTYPE_PCM ,"/mnt/sd0/BIN" ,g_rate ,g_chnm);
+#else
+  err = theAudio->initRecorder(AS_CODECTYPE_PCM ,"/mnt/spif/BIN" ,g_rate ,g_chnm);
+#endif 
   if (err != AUDIOLIB_ECODE_OK) {
-    Serial.println("[Main] Recorder initialize error");
+    MPLog("Recorder initialize error\n");
     return;
   }
 
   /* FFT initialization */
   /* 0x10-0x70 is reserved for FFT applications */
   if (g_sid & 0x70) {
-    Serial.println("[Main] FFT initialization");
+    MPLog("FFT initialization\n");
     fft = new FFTClassKai(g_samp);
 
     /* check if the memory is not free */
@@ -80,7 +90,7 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     pFft = (float*)malloc(sizeof(float)*g_samp);
     pSubFft = (float*)malloc(sizeof(float)*g_samp);
     if (pFft == NULL || pSubFft == NULL) {
-      Serial.println("[Main] not enough memory");
+      MPLog("not enough memory\n");
       while (true) {
         error_notifier(MEM_ERROR);
       }
@@ -93,21 +103,36 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   }
   
   /* Start recordubg routine */
-  Serial.println("[Main] Start Recording");
+  MPLog("Start Recording\n");
   theAudio->startRecorder(); 
-  task_create("signal_processing", 120, 1024, signal_processing, NULL);
+#ifndef SIG_PROCESSING_PTHREAD
+  ret = task_create("signal_processing", 120, 1024, signal_processing, NULL);
+  if (ret < 0) {
+    MPLog("task_create failure. not enough memory?\n");
+    error_notifier(MEM_ERROR);
+  }
+#else
+  ret = pthread_create(&sig_thread, NULL, signal_processing, NULL);
+  if (ret != 0) {
+    MPLog("pthread_create failure. not enough memory?\n");
+    error_notifier(MEM_ERROR);    
+  }
+#endif
   usleep(1);
 }
 
-
+#ifndef SIG_PROCESSING_PTHREAD
 static void signal_processing(int argc, char* argv[]) {
+#else
+static void signal_processing(void* arg) {
+#endif
   
   int err, ret;
   int read_size;
   last_time = millis();
   static uint32_t buffered_sample = 0;    
   
-  Serial.println("[Main] Start Processsig...");
+  MPLog("Start Processsig...\n");
   
   /* Audio Thread starts from here */
   bThreadStopped = false;
@@ -115,7 +140,7 @@ static void signal_processing(int argc, char* argv[]) {
 
     err = theAudio->readFrames(pRaw, buffer_size, &read_size);
     if (err != AUDIOLIB_ECODE_OK && err != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
-      Serial.println("[Main] Error err = " + String(err));
+      MPLog("Error err = %d\n", err);
       bProcessing = false;
       break;
     }
@@ -126,7 +151,7 @@ static void signal_processing(int argc, char* argv[]) {
       continue;
     }
 
-    // printf("read_size: %d\n", read_size);
+    // MPLog("read_size: %d\n", read_size);
      
     /* push the captured data to the ringbuffers */
     int captured_sample = read_size/(g_chnm*sizeof(int16_t));
@@ -142,7 +167,7 @@ static void signal_processing(int argc, char* argv[]) {
 
 void finish_processing() {
   
-  Serial.println("[Main] Stop Recording");
+  MPLog("Stop Recording\n");
   theAudio->stopRecorder();
   theAudio->setReadyMode();
   theAudio->end();  
@@ -215,7 +240,7 @@ void calc_fft_data(struct FftWavData* fdata) {
   fft->clear();
   fft->fft_amp(pFft, pTmp);
   //mTime = millis() - mTime;
-  //Serial.println("[Main] " + String(mTime));
+  //MPLog("time: %d\n", mTime);
    
   fdata->pWav = pWav;
   fdata->pFft = pFft;
@@ -228,8 +253,12 @@ void calc_fft2_data(struct FftFftData* fdata) {
   /* Copy data for FFT calculation */
   uint32_t mTime = millis();
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);       
-  ringbuff[(g_ch1-1)].get(pSubWav, g_samp);       
+  ringbuff[(g_ch0-1)].get(pWav, g_samp);
+  if (g_chnm > 1) {   /* fool proof */
+    ringbuff[(g_ch1-1)].get(pSubWav, g_samp);
+  } else {
+    memset(pSubWav, 0, g_samp*sizeof(float));
+  }
   pthread_mutex_unlock(&m); 
 
   /* digital fitering */
@@ -264,7 +293,7 @@ void calc_fft2_data(struct FftFftData* fdata) {
   fft->clear();
   fft->fft_amp(pSubFft, pTmp);
   //mTime = millis() - mTime;
-  //Serial.println("[Main] " + String(mTime));
+  //MPLog("time: %d\n", mTime);
 
   fdata->pFft = pFft;
   fdata->pSubFft = pSubFft;
@@ -320,7 +349,7 @@ void get_rawfil_data(struct WavWavData* wdata) {
   /* which is better? lpf first? hpf first? */
   /* note that this process is slightly different from above for keeping the original raw data*/
   if (lpf != NULL) {
-    Serial.println("[Main] applying low pass filter");
+    MPLog("applying low pass filter\n");
     lpf->get(pTmp, pWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);
   } else { 
@@ -329,7 +358,7 @@ void get_rawfil_data(struct WavWavData* wdata) {
   }
   
   if (hpf != NULL) {
-    Serial.println("[Main] applying high pass filter");
+    MPLog("applying high pass filter\n");
     hpf->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);    
   }
@@ -341,7 +370,33 @@ void get_rawfil_data(struct WavWavData* wdata) {
 }
 
 
+void calc_orbit_data(struct OrbitData* odata) {
 
+  /* get the data from the ringbuffer */
+  pthread_mutex_lock(&m);
+  ringbuff[(g_ch0-1)].get(pWav, g_samp);
+  if (g_chnm > 1) { /* fool proof */
+    ringbuff[(g_ch1-1)].get(pSubWav, g_samp);     
+  } else {
+    memset(pSubWav, 0, g_samp*sizeof(float));
+  }
+  pthread_mutex_unlock(&m);  
+  
+  uint32_t cur_time = millis();
+  uint32_t dt = cur_time - last_time;
+  
+  struct SensorData sData;
+  calcSensorData(&sData, pWav, g_samp, dt);
+  odata->acc0 = sData.acc;
+  odata->vel0 = sData.vel;
+  odata->dis0 = sData.dis;
+  
+  calcSensorData(&sData, pSubWav, g_samp, dt);
+  odata->acc1 = sData.acc;
+  odata->vel1 = sData.vel;
+  odata->dis1 = sData.dis;
+  last_time = cur_time;
+}
 
 
 static void calcSensorData(struct SensorData* sdata, float* buf, int bufsize, int32_t dt) {
@@ -353,8 +408,9 @@ static void calcSensorData(struct SensorData* sdata, float* buf, int bufsize, in
     acc += buf[i];
   }
   acc /= bufsize;
-  vel += acc*dt/1000.;
-  dis += vel*dt/1000.;
+  acc = acc*45.5 / g_sens;  // acc:mv g_sens:mv/m/s2
+  vel += acc*dt;  // mm/sec
+  dis += vel*dt;  // um
 
   sdata->acc = acc;
   sdata->vel = vel;

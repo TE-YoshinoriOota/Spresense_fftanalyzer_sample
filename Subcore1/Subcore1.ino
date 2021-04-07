@@ -8,7 +8,7 @@ void setup() {
   hardwareSetup();
   ret = MP.begin();
   if (ret < 0) {
-    Serial.println("MP.begin error: " + String(ret));
+    MPLog("MP.begin error: %d\n", ret);
     while(true) { 
       error_notifier(MP_ERROR); 
     }    
@@ -33,7 +33,7 @@ void loop() {
     sid = SID_REQ_JSONDOC;
     ret = MP.Send(sid, res);
     if (ret < 0) {
-      Serial.println("MP.Send error: " + String(ret));
+      MPLog("MP.Send error: %d\n", ret);
       while(true) { 
         error_notifier(MP_ERROR); 
       }    
@@ -49,13 +49,14 @@ void loop() {
     case APP_ID_FFT_FFT: sid = SID_REQ_FFT_FFT; break;
     case APP_ID_WAV_WAV: sid = SID_REQ_WAV_WAV; break;
     case APP_ID_RAW_FIL: sid = SID_REQ_RAW_FIL; break;
+    case APP_ID_ORBITDT: sid = SID_REQ_ORBITDT; break;
     }
 
     MPLog("Request data to Maincore: 0x%02x\n", sid);
     
     ret = MP.Send(sid, data); /* data is dummy */
     if (ret < 0) {
-      Serial.println("MP.Send error: " + String(ret));
+      MPLog("MP.Send error: %d\n", ret);
       while(true) { 
         error_notifier(MP_ERROR); 
       }    
@@ -156,7 +157,7 @@ void loop() {
     }
     
     MPLog("wav->len(%d), wav->df(%f)\n", wav->len, wav->df);
-    appDrawOrbitGraph(wav->pWav, wav->pSubWav, wav->len, wav->df);
+    /* appDrawOrbitGraph(wav->pWav, wav->pSubWav, wav->len, wav->df); */
     receivedData();
     
     uint32_t delay_time = (uint32_t)(1000. / wav->df);
@@ -187,6 +188,18 @@ void loop() {
 
     return;
   }  
-  
+
+  if (sid == SID_REQ_ORBITDT) {
+
+    MPLog("Orbit Data arrived\n");
+    
+    /* check if the data is for sensor monitor application */
+    struct OrbitData *odata = (struct OrbitData*)data;
+    appDrawOrbitGraph(odata);
+    receivedData();
+    delay(100); /* delay for avoiding data flicker on LCD */
+    
+    return;
+  }   
   return;
 }
