@@ -21,7 +21,7 @@ This sample is implemented on this package. If you are interested in, please con
 
 ![Spresense FFT sample](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/Package.jpg)
 
-Attachment board for the attachment board is now available
+Attachment board for vibration sensors is now available!
 
 ![Spresense Vibration Sensor Attachment Board](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/VibrationAttachment.jpg)
 
