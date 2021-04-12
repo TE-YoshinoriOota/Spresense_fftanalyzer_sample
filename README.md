@@ -23,7 +23,7 @@ This sample is implemented on this package. If you are interested in, please con
 
 Attachment board for the attachment board is now available
 
-![Spresense Vibration Sensor Attachment Board](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/VibrationAnalyzerAttachment.jpg)
+![Spresense Vibration Sensor Attachment Board](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/blob/main/Documents/screenshots/VibrationAttachment.jpg)
 
 
 Here are the screenshots of this sample application.
