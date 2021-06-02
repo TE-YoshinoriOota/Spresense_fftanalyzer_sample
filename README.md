@@ -5,12 +5,12 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 
 
 ## How to compile and install
-1st step) Download [Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github and drop it in the Arduino libraries directory.
-2nd step) Copy all menu files in Documents/json to SD card or Flash on Spresense at the root
-3rd step) Launch Arduino IDE and open Subcore1.ino. Be sure to change "Core" to *SubCore 1"
-4th step) Launch Arduino IDE and open Maincore.ino. Be sure to change "Memory" to *896kB* 
-5th step) Compile Subcore1.ino to the subcore1 on Spresense
-6th step) Compile Maincore.ino to Spresense. If you have installed menu files to Flash, comment out *USE_SD_CARD* defined in AppSystem.h
+1. Download [Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github and drop it in the Arduino libraries directory.<br/>
+2. Copy all menu files in **Documents/json** to the root of SD card/Flash on Spresense.<br/>
+3. Launch Arduino IDE and open **Subcore1.ino**. Be sure to change "Core" to **"SubCore 1"**.<br/>
+4. Launch Arduino IDE and open **Maincore.ino**. Be sure to change "Memory" to **896kB** .<br/>
+5. Compile Subcore1.ino to the subcore1 on Spresense.<br/>
+6. Compile Maincore.ino to Spresense. If you have installed menu files to Flash, comment out **USE_SD_CARD** defined in AppSystem.h
 
 
 ## Major functions of this sample
