@@ -4,13 +4,21 @@
 This sample code uses 2 core. Maincore takes in charge of Signal Processing, Subcore-1 takes in charge of Visualization. To make the software understand easily and simply, these programs are made by Spresense Arduino Library. So you can remake them easy for your purpose. Here are the major specifications of this sample.
 
 
-## How to compile and install
-1. Download [Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github and drop it in the Arduino libraries directory.<br/>
-2. Copy all menu files in **Documents/json** to the root of SD card/Flash on Spresense.<br/>
-3. Launch Arduino IDE and open **Subcore1.ino**. Be sure to change "Core" to **"SubCore 1"**.<br/>
-4. Launch Arduino IDE and open **Maincore.ino**. Be sure to change "Memory" to **896kB** .<br/>
-5. Compile Subcore1.ino to the subcore1 on Spresense.<br/>
-6. Compile Maincore.ino to Spresense. If you have installed menu files to Flash, comment out **USE_SD_CARD** defined in AppSystem.h
+## How to compile and install this application to Spresense
+#### 1. install DSP codec
+- Launch Arduino IDE to opne **"src_installer"** that is on the menu "Example" > "Audio" > "dsp_installer" > "src_installer"
+- Compile the skecth and flash it to Spresense
+- Open the console and select the destination (SD Card/Flash) to install DSP codec. And install it.
+#### 2. Get Arduino_Json library 
+- Download [Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github 
+- Drop it to the Arduino libraries directory.
+#### 3. Copy resource files to the storage
+- Copy resource files in **Documents/json** to the root of SD card/Flash on Spresense.
+#### 4. Install the application 
+- Launch Arduino IDE and open **Subcore1.ino**. Be sure to change "Core" to **"SubCore 1"**.<br/>
+- Launch Arduino IDE and open **Maincore.ino**. Be sure to change "Memory" to **896kB** .<br/>
+- Compile Subcore1.ino to the subcore1 on Spresense.<br/>
+- Compile Maincore.ino to Spresense. If you have installed menu files to Flash, comment out **USE_SD_CARD** defined in AppSystem.h
 
 
 ## Major functions of this sample
