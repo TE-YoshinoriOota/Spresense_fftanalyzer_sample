@@ -1,6 +1,7 @@
 #include "AppSystem.h"
 
 // #define SPECIFY_START_PAGE
+// #define MP_DEBUG
 
 /* setup function starts from here */
 void setup() {
@@ -59,8 +60,9 @@ void loop() {
     usleep(1); // yield the process to SignalProcessing
     return;
   }
+#ifdef MP_DEBUG
   MPLog("sid = %d\n", sid);
-
+#endif
   if (sid == SID_REQ_JSONDOC) {
   /* request to change page from Subcore */
 
@@ -116,13 +118,13 @@ void loop() {
   /* request data to monitor sensors */
   if (sid == SID_REQ_MONDATA) {
 
+#ifdef MP_DEBUG
     MPLog("Calculating sensor data\n");
+#endif
     calc_sensor_data(&sData);
 
     struct SensorData sdata;
     memcpy(&sdata, &sData, sizeof(sData));
-
-    MPLog("Send monitor data to Subcore\n");
 
     /* send the data to update the number on LCD display */
     ret = MP.Send(sid, &sdata, SUBCORE);
@@ -139,10 +141,10 @@ void loop() {
   /* request calculate fft data */  
   if (sid == SID_REQ_WAV_FFT) {
 
+#ifdef MP_DEBUG
     MPLog("Calculating fft-wav data\n");
+#endif
     calc_fft_data(&fftWavData);
-
-    MPLog("Send fft-wav data to SUBCORE\n");
 
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send(sid, &fftWavData, SUBCORE);
@@ -159,10 +161,10 @@ void loop() {
   /* request calculate double fft data */
   if (sid == SID_REQ_FFT_FFT) {
 
+#ifdef MP_DEBUG
     MPLog("Calculating fft-fft data\n");
+#endif
     calc_fft2_data(&fft2Data);
-
-    MPLog("Send fft-fft data to SUBCORE\n");
 
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send(sid, &fft2Data, SUBCORE);
@@ -179,11 +181,11 @@ void loop() {
   /* request calculate double wav data */   
   if (sid == SID_REQ_WAV_WAV) {
 
+#ifdef MP_DEBUG
     MPLog("Collecting wav-wav data\n");
+#endif
     get_wav2_data(&wav2Data);
-
-    MPLog("Send wav-wav data to SUBCORE\n");
-    
+   
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send(sid, &wav2Data, SUBCORE);
     if (ret < 0) {
@@ -200,11 +202,11 @@ void loop() {
   /* request calculate double wav data */   
   if (sid == SID_REQ_ORBITDT) {
 
+#ifdef MP_DEBUG
     MPLog("Collecting filtered wav data\n");
+#endif
     calc_orbit_data(&orbitData);
 
-    MPLog("Send orbit data to SUBCORE\n");
-    
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send(sid, &orbitData, SUBCORE);
     if (ret < 0) {
@@ -221,11 +223,11 @@ void loop() {
   /* request calculate double wav data */   
   if (sid == SID_REQ_RAW_FIL) {
 
+#ifdef MP_DEBUG
     MPLog("Collecting filtered wav data\n");
+#endif
     get_rawfil_data(&wav2Data);
-
-    MPLog("Send raw-filtered data to SUBCORE\n");
-    
+   
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send(sid, &wav2Data, SUBCORE);
     if (ret < 0) {

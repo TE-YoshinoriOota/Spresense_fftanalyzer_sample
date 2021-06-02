@@ -1,16 +1,16 @@
 {
-"id":356
-,"title":"FFT 2 WAY MONITOR"
-,"type":5
+"id":495
+,"title":"WAV-WAV COMP MONITOR"
+,"type":9
 ,"cur0":0
 ,"cur1":0
 ,"ch_disp":1
 ,"ch0":3
-,"back":385
-,"next0":0
+,"back":424
+,"next0":466
 ,"res_label":"non"
-,"B0":"WAV+"
-,"B1":" FFT+"
+,"B0":"W1+"
+,"B1":" W2+"
 ,"B2":"BACK"
 ,"B3":"NEXT"
 ,"ch1":0

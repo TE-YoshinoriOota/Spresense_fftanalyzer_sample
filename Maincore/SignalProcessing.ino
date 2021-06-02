@@ -107,17 +107,20 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   theAudio->startRecorder(); 
 #ifndef SIG_PROCESSING_PTHREAD
   ret = task_create("signal_processing", 120, 1024, signal_processing, NULL);
+#else
+  struct sched_param param;
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  param.sched_priority = 10;
+  pthread_attr_setschedparam(&attr, &param);
+  pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+  ret = pthread_create(&sig_thread, &attr, signal_processing, NULL);
+#endif
   if (ret < 0) {
     MPLog("task_create failure. not enough memory?\n");
     error_notifier(MEM_ERROR);
   }
-#else
-  ret = pthread_create(&sig_thread, NULL, signal_processing, NULL);
-  if (ret != 0) {
-    MPLog("pthread_create failure. not enough memory?\n");
-    error_notifier(MEM_ERROR);    
-  }
-#endif
   usleep(1);
 }
 
@@ -349,7 +352,6 @@ void get_rawfil_data(struct WavWavData* wdata) {
   /* which is better? lpf first? hpf first? */
   /* note that this process is slightly different from above for keeping the original raw data*/
   if (lpf != NULL) {
-    MPLog("applying low pass filter\n");
     lpf->get(pTmp, pWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);
   } else { 
@@ -358,7 +360,6 @@ void get_rawfil_data(struct WavWavData* wdata) {
   }
   
   if (hpf != NULL) {
-    MPLog("applying high pass filter\n");
     hpf->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);    
   }

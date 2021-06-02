@@ -72,9 +72,14 @@ void BuildScreen(DynamicJsonDocument *doc) {
     startApplication(APP_ID_ORBITDT);
     break;
   case SCR_TYPE_FLTR:
-    MPLog("Building Orbit Screen\n");
+    MPLog("Building RAW-FIL Screen\n");
     build2WayGraph(doc);
     startApplication(APP_ID_RAW_FIL);
+    break;
+  case SCR_TYPE_WVWV:
+    MPLog("Building WAV-WAV Screen\n");
+    build2WayGraph(doc);
+    startApplication(APP_ID_WAV_WAV);
     break;
   }
   buildButton(doc);

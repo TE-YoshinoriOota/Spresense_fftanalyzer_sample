@@ -26,6 +26,7 @@ static void updateB0() {
   case SCR_TYPE_FFT2:
   case SCR_TYPE_ORBT:
   case SCR_TYPE_FLTR:
+  case SCR_TYPE_WVWV:
     pthread_mutex_lock(&mtx);
     if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
     if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
@@ -64,6 +65,7 @@ static void updateB1() {
   case SCR_TYPE_WVFT:
   case SCR_TYPE_FFT2:
   case SCR_TYPE_FLTR:
+  case SCR_TYPE_WVWV:
     pthread_mutex_lock(&mtx);
     if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
     if (fftamp1 == FFT_MAX_AMP) fftamp1 = FFT_MIN_AMP;

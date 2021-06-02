@@ -35,6 +35,7 @@
 #define SCR_TYPE_FFT2  (6)
 #define SCR_TYPE_ORBT  (7)
 #define SCR_TYPE_FLTR  (8)
+#define SCR_TYPE_WVWV  (9)
 
 /* TITLE COORDINATIONS */
 #define TITLE_DECO_LINE (35)
@@ -177,6 +178,7 @@
 #define SID_REQ_RAW_FIL  (0x04)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
+#define SID_REQ_ORBITDT  (0x30)
 #define SID_REQ_ORBITDT  (0x30)
 
 #define APP_ID_MONDATA  SID_REQ_MONDATA

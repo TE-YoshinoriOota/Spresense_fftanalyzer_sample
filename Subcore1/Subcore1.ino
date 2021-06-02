@@ -157,7 +157,7 @@ void loop() {
     }
     
     MPLog("wav->len(%d), wav->df(%f)\n", wav->len, wav->df);
-    /* appDrawOrbitGraph(wav->pWav, wav->pSubWav, wav->len, wav->df); */
+    appDrawFilterGraph(wav->pWav, wav->pSubWav, wav->len, wav->df);
     receivedData();
     
     uint32_t delay_time = (uint32_t)(1000. / wav->df);
@@ -188,6 +188,7 @@ void loop() {
 
     return;
   }  
+
 
   if (sid == SID_REQ_ORBITDT) {
 

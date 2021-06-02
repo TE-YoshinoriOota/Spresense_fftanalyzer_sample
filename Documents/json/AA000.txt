@@ -1,28 +1,29 @@
 {
-  "id":0,
-  "title":"SPRESENSE FFT ANALYZER",
-   "type":0,
-   "item_num":4,
-   "cur0":0,
-   "cur1":0,
-   "item0":"SENSOR SETUP",
-   "item1":"SENSOR MONITOR",
-   "item2":"SINGLE FFT MONITOR",
-   "item3":"ADVANCED MONITOR",
-   "item0_v":-1,
-   "item1_v":-1,
-   "item2_v":-1,
-   "item3_v":-1,
-   "ch_disp":0,
-   "back":0,
-   "next0":111,
-   "next1":211,
-   "next2":311,
-   "next3":431,
-   "res_label":"",
-   "B0":"DOWN",
-   "B1":"  UP",
-   "B2":"BACK",
-   "B3":"NEXT"
-
+"id":0
+,"title":"SPRESENSE FFT MONITOR"
+,"type":0
+,"item_num":3
+,"cur0":0
+,"cur1":0
+,"item0":"CHANNEL SETUP"
+,"item1":"SINGLE FFT MONITOR"
+,"item2":"ADVANCED MONITOR"
+,"item3":" "
+,"item0_v":-1
+,"item1_v":-1
+,"item2_v":-1
+,"item3_v":-1
+,"ch_disp":0
+,"back":0
+,"next0":113
+,"next1":311
+,"next2":431
+,"next3":000
+,"res_label":""
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"  "
+,"B3":"NEXT"
+,"ch0":3
+,"ch1":0
 }
