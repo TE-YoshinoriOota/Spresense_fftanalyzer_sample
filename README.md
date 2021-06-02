@@ -5,7 +5,7 @@ This sample code uses 2 core. Maincore takes in charge of Signal Processing, Sub
 
 
 ## How to compile and install
-1st step) Download ![Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github and drop it in the Arduino libraries directory.
+1st step) Download [Arduino_Json](https://github.com/TE-YoshinoriOota/ArduinoJson) on this github and drop it in the Arduino libraries directory.
 2nd step) Copy all menu files in Documents/json to SD card or Flash on Spresense at the root
 3rd step) Launch Arduino IDE and open Subcore1.ino. Be sure to change "Core" to *SubCore 1"
 4th step) Launch Arduino IDE and open Maincore.ino. Be sure to change "Memory" to *896kB* 
