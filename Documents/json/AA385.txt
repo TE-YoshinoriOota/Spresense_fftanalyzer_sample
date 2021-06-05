@@ -7,7 +7,7 @@
 ,"ch_disp":1
 ,"ch0":3
 ,"back":324
-,"next0":356
+,"next0":3126
 ,"res_label":"non"
 ,"B0":"W1+"
 ,"B1":" W2+"

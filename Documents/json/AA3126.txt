@@ -1,0 +1,21 @@
+{
+"id":3126
+,"title":"FFT X-AXIS DISP"
+,"type":12
+,"inp_title":"MAXIMUM FREQ. DISP"
+,"inp_unit":"Hz"
+,"cur0":1
+,"cur1":0
+,"inp_num":11
+,"input":[2500,5000,7500,10000,12500,15000,17500,20000,40000,60000,75000]
+,"ch_disp":1
+,"ch0":3
+,"back":385
+,"next0":307
+,"res_label":"non"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch1":0
+}

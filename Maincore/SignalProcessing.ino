@@ -98,8 +98,20 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
 
     memset(pFft, 0, sizeof(float)*g_samp);
     memset(pSubFft, 0, sizeof(float)*g_samp);
-   
-    fft->begin(WindowHamming, 0.5); // WindowHamming applied so far.
+    switch(g_win) {
+    case FFT_WINDOW_RECTANGULAR:
+      fft->begin(WindowRectangle, 0.5); // WindowHamming applied so far.
+      break;
+    case FFT_WINDOW_HAMMING:
+      fft->begin(WindowHamming, 0.5);
+      break;
+    case FFT_WINDOW_HANNING:
+      fft->begin(WindowHanning, 0.5);
+      break;
+    case FFT_WINDOW_FLATTOP:
+      fft->begin(WindowFlattop, 0.5);
+      break;
+    }
   }
   
   /* Start recordubg routine */

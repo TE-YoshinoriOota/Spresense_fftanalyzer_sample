@@ -7,6 +7,9 @@
 #include <ArduinoJson.h>
 #include <MP.h>
 
+// #define MP_DEBUG
+// #define SCR_DEBUG
+#define TMP_DEBUG
 
 /* LCD SCREEN SIZE */
 #define SCREEN_WIDTH  (320)
@@ -26,16 +29,19 @@
 
 
 /* Screen type definitions */
-#define SCR_TYPE_PAGE  (0)
-#define SCR_TYPE_MENU  (1)
-#define SCR_TYPE_INPT  (2)
-#define SCR_TYPE_DMNU  (3)
-#define SCR_TYPE_MNTR  (4)
-#define SCR_TYPE_WVFT  (5)
-#define SCR_TYPE_FFT2  (6)
-#define SCR_TYPE_ORBT  (7)
-#define SCR_TYPE_FLTR  (8)
-#define SCR_TYPE_WVWV  (9)
+#define SCR_TYPE_PAGE  (0x00)
+#define SCR_TYPE_MENU  (0x01)
+#define SCR_TYPE_INPT  (0x02)
+#define SCR_TYPE_DMNU  (0x03)
+#define SCR_TYPE_MNTR  (0x04)
+#define SCR_TYPE_WVFT  (0x05)
+#define SCR_TYPE_FFT2  (0x06)
+#define SCR_TYPE_ORBT  (0x07)
+#define SCR_TYPE_FLTR  (0x08)
+#define SCR_TYPE_WVWV  (0x09)
+#define SCR_TYPE_WFLG  (0x0a)
+#define SCR_TYPE_FTLG  (0x0b)
+#define SCR_TYPE_SCLE  (0x0c)
 
 /* TITLE COORDINATIONS */
 #define TITLE_DECO_LINE (35)
@@ -137,12 +143,12 @@
 #define FFT_VTEXT_MARGIN (4)
 
 /* FFT and WAV graph realted parameters */  
-#define WAV_MAX_AMP   3000
-#define WAV_MIN_AMP   100
-#define WAV_AMP_STEP  100
-#define FFT_MAX_AMP   1000
+#define WAV_MAX_AMP   100
+#define WAV_MIN_AMP   1
+#define WAV_AMP_STEP  2
+#define FFT_MAX_AMP   100
 #define FFT_MIN_AMP   1
-#define FFT_AMP_STEP  10
+#define FFT_AMP_STEP  2
 
 #define FFT_MODE_WAV_FFT  (1)
 #define FFT_MODE_FFT_FFT  (2)
@@ -187,6 +193,19 @@
 #define APP_ID_WAV_WAV  SID_REQ_WAV_WAV
 #define APP_ID_RAW_FIL  SID_REQ_RAW_FIL
 #define APP_ID_ORBITDT  SID_REQ_ORBITDT
+
+
+/* FFT WINDOW FUNCTION */
+#define FFT_WINDOW_RECTANGULAR  (0x00)
+#define FFT_WINDOW_HAMMING      (0x01)
+#define FFT_WINDOW_HANNING      (0x02)
+#define FFT_WINDOW_FLATTOP      (0x03)
+
+
+/* PHYSICAL VALUES */
+#define WAV_MAX_VOL             (455.)
+#define PEAK_TO_PEAK_VOL        (910.)
+
 
 
 /* BUTTON PINS */
@@ -249,8 +268,10 @@ struct OrbitData {
   float dis1;
 };
 
+/* static memories: needs to be reduced */
 static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
 static uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]; 
+static int      graphDataBuf[FFT_GRAPH_WIDTH];
 
 static int8_t scrType = 0;
 static bool   scrChange = false;
@@ -264,7 +285,6 @@ static uint8_t  inp_num = 0;
 static int8_t   cur0 = 0;
 static int8_t   cur1 = 0;
 static uint16_t inpsel[100];
-static int      graphDataBuf[FFT_GRAPH_WIDTH];
 static bool     plotscale0_done = false;
 static bool     plotscale1_done = false;
 static int      fftamp0 = FFT_MIN_AMP;
@@ -272,7 +292,9 @@ static int      fftamp1 = FFT_MIN_AMP;
 static int      wavamp0 = WAV_MIN_AMP;
 static int      wavamp1 = WAV_MIN_AMP;
 static int      orbitamp = ORBIT_MIN_AMP;
-static bool     bLogDisplay = true;
+static bool     bLogDisplay = false;
+static int      fmaxdisp = 10000;
+
 
 /* to avoid conflict between the main loop and interrupt function */
 pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER; 
@@ -307,8 +329,10 @@ void buildNextBackConnection(DynamicJsonDocument* doc);
 void appSensorValue(float acc, float vel, float dis);
 void appDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df);
 void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
-void appDrawFilterGraph(float* pWav0, float*pSubWav, int len1, float df);
+void appDraw2WavGraph(float* pWav0, float*pSubWav, int len1, float df);
 void appDrawOrbitGraph(struct OrbitData* odata);
+float get_peak_to_peak(float* pData, int len, float* minValue, float* maxValue);
+float get_peak_frequency(float* pData, int len, float delta_f, float* maxValue);
 
 /* helper functions */
 void putHorizonLine(int h, int color);
@@ -316,11 +340,11 @@ void putItemCursor(int x, int y, int color);
 bool putText(int x, int y, String str, int color, int tsize);
 
 void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
-                     , int gskip, int x, int y, int w, int h
+                     , float max_vol, int gskip, int x, int y, int w, int h
                      , uint16_t color, float df, int offset = 0
                      , bool clr = true, bool draw = true);
 void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
-                  , int len, int dskip, int x, int y, int w, int h
+                  , float max_vol, int len, int dskip, int x, int y, int w, int h
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
 

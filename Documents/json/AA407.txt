@@ -1,0 +1,23 @@
+{
+"id":407
+,"title":"FFT X-AXIS SETTING"
+,"type":0
+,"item_num":2
+,"cur0":0
+,"cur1":0
+,"item0":"LINEAR"
+,"item1":"LOG"
+,"item0_v":-1
+,"item1_v":-1
+,"ch_disp":0
+,"back":4126
+,"next0":468
+,"next1":4118
+,"res_label":""
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch0":3
+,"ch1":0
+}

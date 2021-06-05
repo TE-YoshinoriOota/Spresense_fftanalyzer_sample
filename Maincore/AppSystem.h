@@ -1,7 +1,7 @@
 #ifndef __APP_SYSTEM_HEADER_GUARD__
 #define __APP_SYSTEM_HEADER_GUARD__
 
-//#define USE_SD_CARD
+#define USE_SD_CARD
 
 #include <ArduinoJson.h>
 #include <MP.h>
@@ -39,6 +39,13 @@
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
 #define SID_REQ_ORBITDT  (0x30)
+
+/* FFT WINDOW FUNCTION */
+#define FFT_WINDOW_RECTANGULAR  (0x00)
+#define FFT_WINDOW_HAMMING      (0x01)
+#define FFT_WINDOW_HANNING      (0x02)
+#define FFT_WINDOW_FLATTOP      (0x03)
+
 
 /* difinitions for application */
 #define SUBCORE (1)
@@ -149,6 +156,7 @@ static int  g_rate;
 static int  g_samp;
 static int  g_lpf;
 static int  g_hpf;
+static int  g_win;
 
 static uint16_t buffer_size;
 

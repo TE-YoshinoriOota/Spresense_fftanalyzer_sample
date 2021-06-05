@@ -1,0 +1,17 @@
+{
+"id":3108
+,"title":"FFT 2 WAY MONITOR"
+,"type":10
+,"cur0":0
+,"cur1":0
+,"ch_disp":1
+,"ch0":3
+,"back":307
+,"next0":0
+,"res_label":"non"
+,"B0":"WAV+"
+,"B1":" FFT+"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch1":0
+}

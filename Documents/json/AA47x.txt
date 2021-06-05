@@ -1,0 +1,17 @@
+{
+"id":478
+,"title":"ORBIT MONITOR"
+,"type":7
+,"cur0":0
+,"cur1":0
+,"ch_disp":2
+,"ch0":1
+,"ch1":3
+,"back":406
+,"next0":0
+,"res_label":"non"
+,"B0":" "
+,"B1":"MAG+"
+,"B2":"BACK"
+,"B3":"NEXT"
+}

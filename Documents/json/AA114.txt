@@ -13,7 +13,7 @@
 ,"item2_v":192000
 ,"ch_disp":0
 ,"back":113
-,"next0":0
+,"next0":115
 ,"res_label":"rate"
 ,"B0":"DOWN"
 ,"B1":"  UP"

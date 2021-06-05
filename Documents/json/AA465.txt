@@ -1,6 +1,6 @@
 {
   "id":465,
-  "title":"FFT FFT WAY MONITOR",
+  "title":"SIGNAL MONITOR",
   "type":6,
   "cur0":0,
   "cur1":0,
@@ -8,7 +8,7 @@
   "ch0":0,
   "ch1":1,
   "back":424,
-  "next0":476,
+  "next0":4126,
   "res_label":"non",
   "B0":"DOWN",
   "B1":"  UP",

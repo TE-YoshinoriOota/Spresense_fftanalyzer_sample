@@ -34,6 +34,7 @@
 typedef enum e_windowType {
   WindowHamming,
   WindowHanning,
+  WindowFlattop,
   WindowRectangle
 } windowType_t;
 

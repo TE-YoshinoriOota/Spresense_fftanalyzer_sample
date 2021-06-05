@@ -15,6 +15,7 @@ static void updateB0() {
     curOperation(cur0);
     break;
   case SCR_TYPE_INPT:  
+  case SCR_TYPE_SCLE:
     if (--cur0 < 0) cur0 = 0;
     inpOperation(cur0);
     break;
@@ -27,6 +28,8 @@ static void updateB0() {
   case SCR_TYPE_ORBT:
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
+  case SCR_TYPE_WFLG:
+  case SCR_TYPE_FTLG:
     pthread_mutex_lock(&mtx);
     if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
     if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
@@ -49,6 +52,7 @@ static void updateB1() {
     curOperation(cur0);
     break;
   case SCR_TYPE_INPT:  
+  case SCR_TYPE_SCLE:
     if (++cur0 == inp_num) cur0 = (inp_num-1);
     inpOperation(cur0);  
     break;
@@ -66,6 +70,8 @@ static void updateB1() {
   case SCR_TYPE_FFT2:
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
+  case SCR_TYPE_WFLG:
+  case SCR_TYPE_FTLG:
     pthread_mutex_lock(&mtx);
     if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
     if (fftamp1 == FFT_MAX_AMP) fftamp1 = FFT_MIN_AMP;
@@ -92,6 +98,8 @@ static void updateB2() {
     value = (*doc)[item.c_str()];
   } else if (scrType == SCR_TYPE_INPT) {
     value = inpsel[cur0];
+  } else if (scrType == SCR_TYPE_SCLE) {
+    fmaxdisp = inpsel[cur0];
   } else if (scrType == SCR_TYPE_DMNU) {
     String item0 = "item0_v" + String(cur0);
     String item1 = "item1_v" + String(cur1);
@@ -120,6 +128,8 @@ static void updateB3() {
     value = (*doc)[item.c_str()];
   } else if (scrType == SCR_TYPE_INPT) {
     value = inpsel[cur0];
+  } else if (scrType == SCR_TYPE_SCLE) {
+    fmaxdisp = inpsel[cur0];
   } else if (scrType == SCR_TYPE_DMNU) {
     String item0 = "item0_v" + String(cur0);
     String item1 = "item1_v" + String(cur1);
@@ -267,7 +277,9 @@ void buildInput(DynamicJsonDocument* doc) {
 void buildMenu(DynamicJsonDocument* doc) {
   item0_num = (*doc)["item_num"];
   cur0 = (*doc)["cur0"];
+#ifdef SCR_DEBUG
   MPLog("SELECTION ITEM : %d\n", item0_num);
+#endif
   for (int i = 0; i < item0_num; ++i) {
     String item = "item" + String(i);
     char* item_c = (*doc)[item.c_str()];
@@ -283,8 +295,10 @@ void buildDMenu(DynamicJsonDocument* doc) {
   item1_num = (*doc)["item1_num"];
   cur0 = (*doc)["cur0"];
   cur1 = (*doc)["cur1"];
+#ifdef SCR_DEBUG
   MPLog("SELECTION ITEM0 : %d\n", item0_num);
   MPLog("SELECTION ITEM1 : %d\n", item1_num);
+#endif
   for (int i = 0; i < item0_num; ++i) {
     String item = "item0_" + String(i);
     char* item_c = (*doc)[item.c_str()];
@@ -325,7 +339,9 @@ void buildSpace(DynamicJsonDocument* doc) {
 /* Building a sign of selected channel */
 void buildChStatus(DynamicJsonDocument* doc) {
   int ch_disp = (*doc)["ch_disp"];
+#ifdef SCR_DEBUG
   MPLog("CHANNEL DISPLAY : %d\n", ch_disp);
+#endif
   for (int i = 0; i < ch_disp; ++i) {
     String ch = "ch" + String(i);
     int8_t ich = (*doc)[ch.c_str()];
@@ -342,7 +358,9 @@ void buildButton(DynamicJsonDocument* doc) {
   char* b1 = (*doc)["B1"];
   char* b2 = (*doc)["B2"];
   char* b3 = (*doc)["B3"];
-  MPLog("Build Buttons\n"); 
+#ifdef SCR_DEBUG
+  MPLog("Build Buttons\n");
+#endif 
   putHorizonLine(BUTTON_DECO_LINE, ILI9341_YELLOW);  
   putText(BUTTON0_SIDE, BUTTON_HEAD, b0, ILI9341_CYAN, 2);
   putText(BUTTON1_SIDE, BUTTON_HEAD, b1, ILI9341_CYAN, 2);
@@ -357,11 +375,15 @@ void buildNextBackConnection(DynamicJsonDocument* doc) {
     for (int i = 0; i < item0_num; ++i) {
       String next = String("next") + String(i);
       nextScreen[i] = (*doc)[next.c_str()];
+#ifdef SCR_DEBUG
       MPLog("buildConn: %d\n", nextScreen[i]);
+#endif
     }
   } else {
     nextScreen[0] = (*doc)["next0"];
+#ifdef SCR_DEBUG
     MPLog("buildConn: %d\n", nextScreen[0]);
+#endif
   }
   backScreen = (*doc)["back"];
 }

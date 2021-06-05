@@ -7,15 +7,16 @@ void update_system_properties(int8_t sid, DynamicJsonDocument* sys) {
   g_sid   = sid;              // MPLog("sid : %d\n", g_sid);
   g_sens  = (*sys)["sens"];   // MPLog("sens: %d\n", g_sens);
   g_gain  = (*sys)["gain"];   // MPLog("gain: %d\n", g_gain);
-  g_chnm  = (*sys)["chnm"];   MPLog("chnm: %d\n", g_chnm);
+  g_chnm  = (*sys)["chnm"];   // MPLog("chnm: %d\n", g_chnm);
   ch      = (*sys)["ch"];     // 
-  g_ch0   = ch & 0x00ff;      MPLog("ch0 : %d\n", g_ch0);
+  g_ch0   = ch & 0x00ff;      // MPLog("ch0 : %d\n", g_ch0);
   g_ch1   = ch >> 8;          // MPLog("ch1 : %d\n", g_ch1);
-  g_rate  = (*sys)["rate"];   MPLog("rate: %ld\n", g_rate);
+  g_rate  = (*sys)["rate"];   // MPLog("rate: %ld\n", g_rate);
   line    = (*sys)["line"];   //
-  g_samp  = line*2.56;        MPLog("samp: %d\n", g_samp);
+  g_samp  = line*2.56;        // MPLog("samp: %d\n", g_samp);
   g_lpf   = (*sys)["lpf"];    // MPLog("lpf : %d\n", g_lpf);
   g_hpf   = (*sys)["hpf"];    // MPLog("hpf : %d\n", g_hpf);
+  g_win   = (*sys)["win"];    MPLog("win : %d\n", g_win);  
 }
 
 void readSysprop(int8_t sid, DynamicJsonDocument* doc) {

@@ -1,0 +1,17 @@
+{
+"id":468
+,"title":"FFT-FFT COMP MONITOR"
+,"type":6
+,"cur0":0
+,"cur1":0
+,"ch_disp":2
+,"ch0":1
+,"ch1":3
+,"back":407
+,"next0":000
+,"res_label":"non"
+,"B0":"F1+"
+,"B1":" F2+"
+,"B2":"BACK"
+,"B3":"NEXT"
+}

@@ -1,1 +1,12 @@
-{"app":0,"sens":5,"gain":1,"chnm":4,"rate":48000,"ch":769,"line":400,"lpf":2000,"hpf":10,"non":39}
+{
+"app":0
+,"sens":5
+,"gain":1
+,"chnm":4
+,"rate":48000
+,"ch":769
+,"line":400
+,"lpf":2000
+,"hpf":10
+,"win":0
+,"non":39}
