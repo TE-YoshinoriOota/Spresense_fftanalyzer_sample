@@ -155,52 +155,6 @@ static void updateB3() {
 }
 
 
-/* Screen operation related functions */
-static bool updateScreen() {
-  bool tmp = scrChange;
-  scrChange = false;
-  return tmp;
-}
-
-
-/* this function is called when the page changes */
-void clearScreen(DynamicJsonDocument* jdoc) {
-  scrType  = (*jdoc)["type"];
-  scrChange = false;
-  item0_num = 0;
-  inp_num = 0;
-  cur0 = 0;
-  cur1 = 0;
-  backScreen = -1;
-  doc = jdoc;
-#ifdef DEMO_SETTING
-  fftamp0  = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp0  = WAV_MAX_AMP;
-  fftamp1  = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp1  = WAV_MAX_AMP;
-  orbitamp = ORBIT_MIN_AMP;
-#else
-  fftamp0  = FFT_MIN_AMP;
-  wavamp0  = WAV_MIN_AMP;
-  fftamp1  = FFT_MIN_AMP;
-  wavamp1  = WAV_MIN_AMP;
-  orbitamp = ORBIT_MIN_AMP;
-  dbvdisp0 = FFT_DBV_INIT;
-  bdBVDisplay = false;
-  bLogDisplay = false;
-#endif
-  plotscale0_done = false;
-  plotscale1_done = false;
-  memset(inpsel, 0, sizeof(uint16_t)*100);
-  memset(nextScreen, -1, sizeof(int)*5);
-  memset(&response, 0, sizeof(struct Response));
-  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
-  memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
-  memcpy(response.label, "non", sizeof(char)*3);
-  tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK); 
-}
-
-
 /* UP/DOWN operation related functions */
 /* Cursor operation for menu and page screens */
 void curOperation(int cur) {
@@ -247,7 +201,8 @@ void curOperation(int cur0, int cur1) {
 
 /* Building UI related functions */
 /* Buidling Title on top of the screen */
-void buildTitle(DynamicJsonDocument* doc) {
+void buildTitle(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   char* title = (*doc)["title"];
   putText(TITLE_SIDE, TITLE_HEAD, title, ILI9341_YELLOW, 2);
   putHorizonLine(TITLE_DECO_LINE, ILI9341_YELLOW);  
@@ -255,7 +210,8 @@ void buildTitle(DynamicJsonDocument* doc) {
 
 
 /* Building a sign of application selected */
-void buildAppSign(DynamicJsonDocument* doc) {
+void buildAppSign(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   static char appChar[6][4] = {
     " ","SET","MNT","FFT","DIF","OBT"
   }; 
@@ -269,7 +225,8 @@ void buildAppSign(DynamicJsonDocument* doc) {
 
 
 /* Building a input dialog box */
-void buildInput(DynamicJsonDocument* doc) {
+void buildInput(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   inp_num = (*doc)["inp_num"];
   for (int i = 0; i < inp_num; ++i) {
     inpsel[i] = (*doc)["input"][i];
@@ -286,7 +243,8 @@ void buildInput(DynamicJsonDocument* doc) {
 
 
 /* Building items on a menu screen */
-void buildMenu(DynamicJsonDocument* doc) {
+void buildMenu(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   item0_num = (*doc)["item_num"];
   cur0 = (*doc)["cur0"];
 #ifdef SCR_DEBUG
@@ -302,7 +260,8 @@ void buildMenu(DynamicJsonDocument* doc) {
 
 
 /* Building items on a double menu screen */
-void buildDMenu(DynamicJsonDocument* doc) {
+void buildDMenu(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   item0_num = (*doc)["item0_num"];
   item1_num = (*doc)["item1_num"];
   cur0 = (*doc)["cur0"];
@@ -326,7 +285,8 @@ void buildDMenu(DynamicJsonDocument* doc) {
 
 
 /* Building the screen for the sensor monitor application */
-void buildMonitor(DynamicJsonDocument* doc) {
+void buildMonitor(DynamicJsonDocument* jdoc) {
+  jdoc = doc;
   tft.drawRect(MON_BOX_SIDE, MON_BOX0_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX1_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
   tft.drawRect(MON_BOX_SIDE, MON_BOX2_HEAD, MON_BOX_WIDTH, MON_BOX_HEIGHT, ILI9341_YELLOW);  
@@ -337,19 +297,27 @@ void buildMonitor(DynamicJsonDocument* doc) {
 
 
 /* Building the screen for 2 graph applications */
-void build2WayGraph(DynamicJsonDocument* doc) {
+void build2WayGraph(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX0_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+1, ILI9341_YELLOW);  
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX1_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+2, ILI9341_YELLOW); 
 }
 
+/* Building the screen for 2 graph applications */
+void buildSpectroGraph(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
+  tft.drawRect(SPC_BOX_SIDE, SPC_BOX_HEAD, SPC_GRAPH_WIDTH+SPC_MARGIN+1, SPC_GRAPH_HEIGHT+SPC_MARGIN+1, ILI9341_YELLOW);  
+}
 
 /* Building the screen for the orbit graph application */
-void buildSpace(DynamicJsonDocument* doc) {
+void buildSpace(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   // the graph is drawn by applications
 }
 
 /* Building a sign of selected channel */
-void buildChStatus(DynamicJsonDocument* doc) {
+void buildChStatus(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   int ch_disp = (*doc)["ch_disp"];
 #ifdef SCR_DEBUG
   MPLog("CHANNEL DISPLAY : %d\n", ch_disp);
@@ -365,7 +333,8 @@ void buildChStatus(DynamicJsonDocument* doc) {
 
 
 /* Building buttons */
-void buildButton(DynamicJsonDocument* doc) {
+void buildButton(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   char* b0 = (*doc)["B0"];
   char* b1 = (*doc)["B1"];
   char* b2 = (*doc)["B2"];
@@ -382,7 +351,8 @@ void buildButton(DynamicJsonDocument* doc) {
 
 
 /* Building a connection to a next page and a back page */
-void buildNextBackConnection(DynamicJsonDocument* doc) {
+void buildNextBackConnection(DynamicJsonDocument* jdoc) {
+  doc = jdoc;
   if (scrType == SCR_TYPE_PAGE) {
     for (int i = 0; i < item0_num; ++i) {
       String next = String("next") + String(i);

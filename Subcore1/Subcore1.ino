@@ -83,7 +83,7 @@ void loop() {
     MPLog("Update screen\n");
 #endif
     json = (DynamicJsonDocument*)data;
-    clearScreen(json);
+    ClearScreen(json);
     char* title = (*json)["title"];
 #ifdef MP_DEBUG
     MPLog("Build Screen %s\n", title);

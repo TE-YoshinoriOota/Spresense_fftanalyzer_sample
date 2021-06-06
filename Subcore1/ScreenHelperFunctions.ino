@@ -131,7 +131,7 @@ void putPeakFrequencyInPower(float peakFs, float value) {
 }
 
 /* Draw a linear graph on FFT/WAV applications */
-void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufLinearGraph(uint16_t* frameBuf, float* graph
                      , float max_vol, int gskip, int side, int head, int width, int height
                      , uint16_t color, float df, int offset, bool clr, bool draw) {
                       
@@ -156,7 +156,7 @@ void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph
 
 
 /* Draw a log graph on FFT applications */
-void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufLogGraph(uint16_t* frameBuf, float* graph
                   , float max_vol, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr, bool draw, int offset) {
@@ -186,7 +186,7 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
 
 
 /* Draw a log graph on FFT applications */
-void putBufdBVGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufdBVGraph(uint16_t* frameBuf, float* graph
                   , int max_dbv, int min_dbv, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr, bool draw, int offset) {
@@ -488,7 +488,8 @@ void plotorbitscale(int mag) {
 #ifndef _swap_int16_t
 #define _swap_int16_t(a, b) { int16_t t = a; a = b; b = t; }
 #endif
-void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT]
+
+void writeLineToBuf(uint16_t* fBuf
                   , int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color) {
 
@@ -528,9 +529,11 @@ void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT]
 
   for (; x0 <= x1; x0++) {
     if (steep) {
-      fBuf[y0][x0] = color;
+      //fBuf[y0][x0] = color;
+      *(fBuf+y0*FRAME_HEIGHT+x0) = color;
     } else {
-      fBuf[x0][y0] = color;
+      //fBuf[x0][y0] = color;
+      *(fBuf+x0*FRAME_HEIGHT+y0) = color;
     }
     err -= dy;
     if (err < 0) {
@@ -541,8 +544,12 @@ void writeLineToBuf(uint16_t fBuf[][FRAME_HEIGHT]
 }
 
 
-/* Helper function for drawing the circle for the orbit graph */ 
+/* Helper function for drawing the circle for the orbit graph */
+/* 
 void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
+                    , int16_t x0, int16_t y0, int16_t r, uint16_t color) {
+*/
+void writeOrBitGraphToBuf(uint16_t* orbitBuf
                     , int16_t x0, int16_t y0, int16_t r, uint16_t color) {
   int16_t f = 1 - r;
   int16_t ddF_x = 1;
@@ -550,10 +557,14 @@ void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
   int16_t x = 0;
   int16_t y = r;
 
-  orbitBuf[x0][y0+r] = color;
-  orbitBuf[x0][y0-r] = color;
-  orbitBuf[x0+r][y0] = color;
-  orbitBuf[x0-r][y0] = color;
+  //orbitBuf[x0][y0+r] = color;
+  *(orbitBuf+x0*ORBIT_SIZE+(y0+r)) = color;
+  //orbitBuf[x0][y0-r] = color;
+  *(orbitBuf+x0*ORBIT_SIZE+(y0-r)) = color;
+  //orbitBuf[x0+r][y0] = color;
+  *(orbitBuf+(x0+r)*ORBIT_SIZE+y0) = color;
+  //orbitBuf[x0-r][y0] = color;
+  *(orbitBuf+(x0-r)*ORBIT_SIZE+y0) = color;
 
   while (x < y) {
     if (f >= 0) {
@@ -564,26 +575,38 @@ void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
     ++x;
     ddF_x += 2;
     f += ddF_x;
-    orbitBuf[x0+x][y0+y] = color;
-    orbitBuf[x0-x][y0+y] = color;
-    orbitBuf[x0+x][y0-y] = color;
-    orbitBuf[x0-x][y0-y] = color;
-    orbitBuf[x0+y][y0+x] = color;
-    orbitBuf[x0-y][y0+x] = color;
-    orbitBuf[x0+y][y0-x] = color;
-    orbitBuf[x0-y][y0-x] = color;
+    //orbitBuf[x0+x][y0+y] = color;
+    *(orbitBuf+(x0+x)*ORBIT_SIZE+(y0+y)) = color;
+    //orbitBuf[x0-x][y0+y] = color;
+    *(orbitBuf+(x0-x)*ORBIT_SIZE+(y0+y)) = color;
+    //orbitBuf[x0+x][y0-y] = color;
+    *(orbitBuf+(x0+x)*ORBIT_SIZE+(y0-y)) = color;
+    //orbitBuf[x0-x][y0-y] = color;
+    *(orbitBuf+(x0-x)*ORBIT_SIZE+(y0-y)) = color;
+    //orbitBuf[x0+y][y0+x] = color;
+    *(orbitBuf+(x0+y)*ORBIT_SIZE+(y0+x)) = color;
+    //orbitBuf[x0-y][y0+x] = color;
+    *(orbitBuf+(x0-y)*ORBIT_SIZE+(y0+x)) = color;
+    //orbitBuf[x0+y][y0-x] = color;
+    *(orbitBuf+(x0+y)*ORBIT_SIZE+(y0-x)) = color;
+    //orbitBuf[x0-y][y0-x] = color;
+    *(orbitBuf+(x0-y)*ORBIT_SIZE+(y0-x)) = color;
   }
 
   // x axis
   for (x = 0; x < r; ++x) {
-    orbitBuf[x0+x][y0] = color;
-    orbitBuf[x0-x][y0] = color;
+    //orbitBuf[x0+x][y0] = color;
+    *(orbitBuf+(x0+x)*ORBIT_SIZE+y0) = color;
+    //orbitBuf[x0-x][y0] = color;
+    *(orbitBuf+(x0-x)*ORBIT_SIZE+y0) = color;
   }
 
   // y axis
   for (y = 0; y < r; ++y) {
-    orbitBuf[x0][y0+y] = color;
-    orbitBuf[x0][y0-y] = color;
+    //orbitBuf[x0][y0+y] = color;
+    *(orbitBuf+x0*ORBIT_SIZE+(y0+y)) = color;
+    //orbitBuf[x0][y0-y] = color;
+    *(orbitBuf+x0*ORBIT_SIZE+(y0-y)) = color;
   }
 }
 
@@ -608,6 +631,7 @@ void putLcdLineGraph(float graph[], int gskip, int x, int y, int w, int h, uint1
 
 // tentative implemntation. no test/no check have been made.
 // if you want to use this, please do look into the code before using.
+/*
 void putBufFillGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
                    , int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
   memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
@@ -629,3 +653,4 @@ void putBufFillGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
   }
   tft.drawRGBBitmap(x, y, (uint16_t*)frameBuf, w, h);  
 }
+*/

@@ -43,7 +43,7 @@
 #define SCR_TYPE_SCLE  (12)
 #define SCR_TYPE_WFDB  (13)
 #define SCR_TYPE_FFDB  (14)
-
+#define SCR_TYPE_SPCT  (15)
 
 /* TITLE COORDINATIONS */
 #define TITLE_DECO_LINE (35)
@@ -155,14 +155,28 @@
 #define FFT_DBV_INIT      (0)
 
 
-/*
-#define FFT_MODE_WAV_FFT  (1)
-#define FFT_MODE_FFT_FFT  (2)
-#define FFT_MODE_WAV_WAV  (3)
-*/
-
 #define FRAME_WIDTH  FFT_GRAPH_HEIGHT
 #define FRAME_HEIGHT FFT_GRAPH_WIDTH
+
+
+/* SPECTROGRAM SCREEN CORDINATION */
+#define SPC_MARGIN (1)
+#define SPC_GRAPH_WIDTH  (256)
+#define SPC_GRAPH_HEIGHT (128)
+#define SPC_GRAPH_SIDE    SPC_MARGIN 
+#define SPC_GRAPH_HEAD   (45 + SPC_MARGIN)
+#define SPC_BOX_SIDE     (SPC_GRAPH_SIDE - SPC_MARGIN)  
+#define SPC_BOX_HEAD     (SPC_GRAPH_HEAD - FFT_MARGIN) 
+#define SPC_UNIT0_SIDE    TITLE_SIDE
+#define SPC_UNIT1_SIDE    SPC_UNIT0_SIDE + 32
+#define SPC_UNIT2_SIDE    SPC_UNIT1_SIDE + 32
+#define SPC_UNIT3_SIDE    SPC_UNIT2_SIDE + 32
+#define SPC_UNIT4_SIDE    SPC_UNIT3_SIDE + 32
+#define SPC_UNIT5_SIDE    SPC_UNIT4_SIDE + 32
+#define SPC_UNIT6_SIDE    SPC_UNIT5_SIDE + 32
+#define SPC_UNIT7_SIDE    SPC_UNIT6_SIDE + 32
+#define SPC_UNIT0_HEAD    SPC_GRAPH_HEAD + FFT_BOX_HEIGHT + 2
+
 
 
 /* ORBIT SCREEN CORDINATION */
@@ -184,7 +198,7 @@
 #define ORBIT_AMP_STEP       (10)
 
 /* MULTICORE MESSAGE ID */
-/* 0x10 - 0x70 is reserved for FFT applications */
+/* 0x10 - 0x70 is for FFT applications */
 #define SID_REQ_JSONDOC  (0x01)
 #define SID_REQ_MONDATA  (0x02)
 #define SID_REQ_WAV_WAV  (0x03)
@@ -192,7 +206,7 @@
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
 #define SID_REQ_ORBITDT  (0x30)
-#define SID_REQ_ORBITDT  (0x30)
+#define SID_REQ_SPECTRO  (0x40)
 
 #define APP_ID_MONDATA  SID_REQ_MONDATA
 #define APP_ID_WAV_FFT  SID_REQ_WAV_FFT
@@ -200,7 +214,7 @@
 #define APP_ID_WAV_WAV  SID_REQ_WAV_WAV
 #define APP_ID_RAW_FIL  SID_REQ_RAW_FIL
 #define APP_ID_ORBITDT  SID_REQ_ORBITDT
-
+#define APP_ID_SPECTRO  SID_REQ_SPECTRO
 
 /* FFT WINDOW FUNCTION */
 #define FFT_WINDOW_RECTANGULAR  (0x00)
@@ -276,9 +290,17 @@ struct OrbitData {
 };
 
 /* static memories: needs to be reduced */
+/*
 static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
 static uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]; 
 static float    graphDataBuf[FFT_GRAPH_WIDTH];
+*/
+static uint16_t* frameBuf; 
+static uint16_t* spcFrameBuf;
+static uint16_t* orbitBuf; 
+static float*    graphDataBuf;
+static float*    spcDataBuf;
+
 
 static int8_t scrType = 0;
 static bool   scrChange = false;
@@ -328,7 +350,7 @@ bool isDataReceived();
 bool receivedData();
 void requestData();
 
-void clearScreen(DynamicJsonDocument* jdoc);
+void ClearScreen(DynamicJsonDocument* jdoc);
 void BuildScreen(DynamicJsonDocument* doc);
 void buildTitle(DynamicJsonDocument* doc);
 void buildAppSign(DynamicJsonDocument* doc);
@@ -338,6 +360,7 @@ void buildDMenu(DynamicJsonDocument* doc);
 void buildMonitor(DynamicJsonDocument* doc);
 void build2WayGraph(DynamicJsonDocument* doc);
 void buildOrbitGraph(DynamicJsonDocument* doc);
+void buildSpectroGraph(DynamicJsonDocument* doc);
 void buildChStatus(DynamicJsonDocument* doc);
 void buildButton(DynamicJsonDocument* doc);
 void buildNextBackConnection(DynamicJsonDocument* doc);
@@ -373,15 +396,15 @@ void putHorizonLine(int h, int color);
 void putItemCursor(int x, int y, int color);
 bool putText(int x, int y, String str, int color, int tsize);
 
-void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufLinearGraph(uint16_t* frameBuf, float* graph
                      , float max_vol, int gskip, int x, int y, int w, int h
                      , uint16_t color, float df, int offset = 0
                      , bool clr = true, bool draw = true);
-void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufLogGraph(uint16_t* frameBuf, float* graph
                   , float max_vol, int len, int dskip, int x, int y, int w, int h
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
-void putBufdBVGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+void putBufdBVGraph(uint16_t* frameBuf, float* graph
                   , int max_dbv, int min_dbv, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
@@ -392,8 +415,9 @@ void plottimescale(float df, int len, int head, bool redraw);
 void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
 void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);
 
-void writeLineToBuf(uint16_t fBuf[FRAME_WIDTH][FRAME_HEIGHT], int16_t x0, int16_t y0
+void writeLineToBuf(uint16_t* fBuf, int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color);
-void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
+void writeOrBitGraphToBuf(uint16_t* orbitBuf
                     , int16_t x0, int16_t y0, int16_t r, uint16_t color);
+
 #endif /* __APP_SCREEN_HEADER_GURAD__ */

@@ -30,7 +30,7 @@ void hardwareSetup() {
 void BuildScreen(DynamicJsonDocument *doc) {
   cur_scrType = (*doc)["type"];
   MPLog("scr_type: %d\n", cur_scrType);
-  clearScreen(doc);
+  ClearScreen(doc);
   buildTitle(doc);
   buildAppSign(doc);
   switch (cur_scrType) {
@@ -110,10 +110,66 @@ void BuildScreen(DynamicJsonDocument *doc) {
     build2WayGraph(doc);
     startApplication(APP_ID_FFT_FFT);
     break;
+  case SCR_TYPE_SPCT:
+    MPLog("Building Spectrogram Screen\n");
+    buildSpectroGraph(doc);
+    startApplication(APP_ID_WAV_FFT);
+    break;
+    
   }
   buildButton(doc);
   buildNextBackConnection(doc);
 }
+
+
+
+/* Screen operation related functions */
+static bool updateScreen() {
+  bool tmp = scrChange;
+  scrChange = false;
+  return tmp;
+}
+
+
+/* this function is called when the page changes */
+void ClearScreen(DynamicJsonDocument* jdoc) {
+  scrType  = (*jdoc)["type"];
+  scrChange = false;
+  item0_num = 0;
+  inp_num = 0;
+  cur0 = 0;
+  cur1 = 0;
+  backScreen = -1;
+#ifdef DEMO_SETTING
+  fftamp0  = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp0  = WAV_MAX_AMP;
+  fftamp1  = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp1  = WAV_MAX_AMP;
+  orbitamp = ORBIT_MIN_AMP;
+#else
+  fftamp0  = FFT_MIN_AMP;
+  wavamp0  = WAV_MIN_AMP;
+  fftamp1  = FFT_MIN_AMP;
+  wavamp1  = WAV_MIN_AMP;
+  orbitamp = ORBIT_MIN_AMP;
+  dbvdisp0 = FFT_DBV_INIT;
+  bdBVDisplay = false;
+  bLogDisplay = false;
+#endif
+  plotscale0_done = false;
+  plotscale1_done = false;
+  memset(inpsel, 0, sizeof(uint16_t)*100);
+  memset(nextScreen, -1, sizeof(int)*5);
+  memset(&response, 0, sizeof(struct Response));
+  memcpy(response.label, "non", sizeof(char)*3);
+  
+  freeScreenMemories();
+
+  tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK); 
+}
+
+
+
 
 /* appllication life cycle control */
 static bool bAppRunning = false;
@@ -124,6 +180,22 @@ void startApplication(int appid) {
   bAppRunning = true;
   bDataReceived = true;
   app_id = appid;
+  switch (appid) {
+  case APP_ID_MONDATA:
+    break;
+  case APP_ID_WAV_FFT:
+  case APP_ID_FFT_FFT:
+  case APP_ID_WAV_WAV:
+  case APP_ID_RAW_FIL:
+    signalScreenMemoryAllocation(); 
+    break;
+  case APP_ID_ORBITDT:
+    orbitScreenMemoryAllocation();
+    break;
+  case APP_ID_SPECTRO:
+    spectroScreenMemoryAllocation();
+    break;
+  }
 }
 
 int isAppRunning() {
@@ -182,4 +254,50 @@ void updateResponse(char* label, int value, int cur0, int cur1, int next_id) {
   MPLog("Response.cur1  %d\n", response.cur1);
   MPLog("Response.next_id  %d\n", response.next_id);
 #endif
+}
+
+
+
+/* helper function to avoid retype */
+void signalScreenMemoryAllocation() {
+  frameBuf = (uint16_t*)malloc(sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  graphDataBuf = (float*)malloc(sizeof(float)*FFT_GRAPH_WIDTH);
+  memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);  
+}
+
+void orbitScreenMemoryAllocation() {
+  orbitBuf = (uint16_t*)malloc(sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+  memset(frameBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+}
+
+void spectroScreenMemoryAllocation() {
+  spcFrameBuf = (uint16_t*)malloc(sizeof(uint16_t)*SPC_GRAPH_WIDTH*SPC_GRAPH_HEIGHT);
+  spcDataBuf = (float*)malloc(sizeof(float)*SPC_GRAPH_HEIGHT);
+  memset(spcFrameBuf, 0, sizeof(uint16_t)*SPC_GRAPH_WIDTH*SPC_GRAPH_HEIGHT);
+  memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
+}
+
+void freeScreenMemories() {
+  if (frameBuf != '\0') {
+    memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+    free(frameBuf); frameBuf = '\0';
+  }
+  if (spcFrameBuf != '\0') {
+    memset(spcFrameBuf, 0, sizeof(uint16_t)*SPC_GRAPH_WIDTH*SPC_GRAPH_HEIGHT);
+    free(spcFrameBuf); spcFrameBuf = '\0';    
+  }
+  if (graphDataBuf != '\0') {
+    memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
+    free(graphDataBuf); graphDataBuf = '\0';
+  }
+  if (spcDataBuf != '\0') {
+    memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
+    free(spcDataBuf); spcDataBuf = '\0';
+  }
+  if (orbitBuf != '\0') {
+    memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+    orbitBuf = (uint16_t*)malloc(sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+    free(orbitBuf); orbitBuf = '\0';
+  }
 }

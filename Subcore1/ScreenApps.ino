@@ -288,7 +288,8 @@ void appDrawOrbitGraph(struct OrbitData* odata) {
   val0 += ORBIT_GRAPH_RADIUS;
   val1 += ORBIT_GRAPH_RADIUS;
 
-  orbitBuf[val0][val1] = ILI9341_CYAN;
+  //orbitBuf[val0][val1] = ILI9341_CYAN;
+  *(orbitBuf+val0*ORBIT_SIZE+val1) = ILI9341_CYAN;
   
 #ifdef SCR_DEBUG
   MPLog("Write OrBitGraph\n");
