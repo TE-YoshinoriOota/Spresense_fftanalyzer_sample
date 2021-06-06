@@ -39,6 +39,7 @@
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
 #define SID_REQ_ORBITDT  (0x30)
+#define SID_REQ_SPECTRO  (0x40)
 
 /* FFT WINDOW FUNCTION */
 #define FFT_WINDOW_RECTANGULAR  (0x00)

@@ -1,0 +1,17 @@
+{
+"id":640
+,"title":"FILTER CHECK MONITOR"
+,"type":8
+,"cur0":0
+,"cur1":0
+,"ch_disp":1
+,"ch0":3
+,"back":630
+,"next0":650
+,"res_label":"non"
+,"B0":"W1+"
+,"B1":" W2+"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch1":0
+}

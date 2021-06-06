@@ -127,7 +127,7 @@ void putPeakFrequencyInLinear(float peakFs, float value, int head) {
 
 
 void putPeakFrequencyInPower(float peakFs, float value) {
-  
+  // need to implement for dBV view
 }
 
 /* Draw a linear graph on FFT/WAV applications */
@@ -215,6 +215,31 @@ void putBufdBVGraph(uint16_t* frameBuf, float* graph
   }
 
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+}
+
+
+void putBufSpcGraph(uint16_t* spcBuf, float* spcDataBuf
+                  , int len, int dskip, float df
+                  , int side, int head
+                  , int width, int height) {
+
+  // need to think about memory layout to use DMA
+  // current implementation is too slow!
+  for (int j = 1; j < width; ++j) {
+    for (int i = 0; i < height; ++i) {
+      *(spcFrameBuf + i*width+j-1) = *(spcFrameBuf+i*width+j); 
+    }
+  }
+
+  for (int i = 0; i < len; ++i) {
+    int val = spcDataBuf[i]*255;
+    if (val < 0) val = 0;
+    else if (val > 255) val = 255;
+    int n = height-i-1; // inverse the data
+    *(spcFrameBuf + n*width + (width-1)) = pseudoColors[val];
+  }
+  
+  tft.drawRGBBitmap(side, head, (uint16_t*)spcFrameBuf, width, height);
 }
 
 /* plot virtical scale */
@@ -387,6 +412,33 @@ void plottimescale(float df, int len, int head, bool redraw) {
   } 
   if (redraw == false)
     plotscale0_done = true;   
+}
+
+
+void plottimescale_for_spc(uint32_t duration, bool redraw) {
+  static bool plotscalespc_done = false;
+  if (plotscalespc_done == true && redraw == false) return;
+  float maxtime = duration*SPC_GRAPH_WIDTH;
+
+  uint32_t m_sec_d = 0;
+  for (int n = SPC_GRAPH_WIDTH-1; n >= 0; n -= SPC_GRAPH_WIDTH/5) {
+    tft.drawLine(SPC_GRAPH_SIDE + n, SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT+1
+               , SPC_GRAPH_SIDE + n, SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT+3
+               , ILI9341_YELLOW);
+    float sec_d;
+    if (m_sec_d > 99) {
+      sec_d = (float)(m_sec_d)/1000.;  
+      putText(FFT_GRAPH_SIDE + n, SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT+4
+            , String(sec_d, 0) + String(" s"), ILI9341_YELLOW, 1);
+    } else {
+      putText(FFT_GRAPH_SIDE + n, SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT+4
+            , String(m_sec_d) + String(" ms"), ILI9341_YELLOW, 1);
+    }
+    m_sec_d += duration*(SPC_GRAPH_WIDTH/5);
+  }
+  
+  if (redraw == false)
+    plotscalespc_done = true;
 }
 
 

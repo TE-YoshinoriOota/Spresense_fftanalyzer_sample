@@ -2,13 +2,13 @@
 "id":000
 ,"title":"SPRESENSE FFT MONITOR"
 ,"type":0
-,"item_num":3
+,"item_num":4
 ,"cur0":0
 ,"cur1":0
 ,"item0":"CHANNEL SETUP"
 ,"item1":"SINGLE FFT MONITOR"
 ,"item2":"DUAL FFT MONITOR"
-,"item3":" "
+,"item3":"SPECTROGRAM MONITOR "
 ,"item0_v":-1
 ,"item1_v":-1
 ,"item2_v":-1
@@ -18,7 +18,7 @@
 ,"next0":100
 ,"next1":300
 ,"next2":400
-,"next3":000
+,"next3":600
 ,"res_label":""
 ,"B0":"DOWN"
 ,"B1":"  UP"

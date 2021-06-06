@@ -113,7 +113,7 @@ void BuildScreen(DynamicJsonDocument *doc) {
   case SCR_TYPE_SPCT:
     MPLog("Building Spectrogram Screen\n");
     buildSpectroGraph(doc);
-    startApplication(APP_ID_WAV_FFT);
+    startApplication(APP_ID_SPECTRO);
     break;
     
   }
@@ -153,11 +153,13 @@ void ClearScreen(DynamicJsonDocument* jdoc) {
   wavamp1  = WAV_MIN_AMP;
   orbitamp = ORBIT_MIN_AMP;
   dbvdisp0 = FFT_DBV_INIT;
+  dbvdisp1 = FFT_DBV_INIT;
   bdBVDisplay = false;
   bLogDisplay = false;
 #endif
   plotscale0_done = false;
   plotscale1_done = false;
+  plotscalespc_done = false;
   memset(inpsel, 0, sizeof(uint16_t)*100);
   memset(nextScreen, -1, sizeof(int)*5);
   memset(&response, 0, sizeof(struct Response));
@@ -272,9 +274,9 @@ void orbitScreenMemoryAllocation() {
 }
 
 void spectroScreenMemoryAllocation() {
-  spcFrameBuf = (uint16_t*)malloc(sizeof(uint16_t)*SPC_GRAPH_WIDTH*SPC_GRAPH_HEIGHT);
+  spcFrameBuf = (uint16_t*)malloc(sizeof(uint16_t)*SPC_GRAPH_HEIGHT*SPC_GRAPH_WIDTH);
   spcDataBuf = (float*)malloc(sizeof(float)*SPC_GRAPH_HEIGHT);
-  memset(spcFrameBuf, 0, sizeof(uint16_t)*SPC_GRAPH_WIDTH*SPC_GRAPH_HEIGHT);
+  memset(spcFrameBuf, 0, sizeof(uint16_t)*SPC_GRAPH_HEIGHT*SPC_GRAPH_WIDTH);
   memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
 }
 

@@ -139,7 +139,7 @@ void loop() {
   } 
   
   /* request calculate fft data */  
-  if (sid == SID_REQ_WAV_FFT) {
+  if (sid == SID_REQ_WAV_FFT || sid == SID_REQ_SPECTRO) {
 
 #ifdef MP_DEBUG
     MPLog("Calculating fft-wav data\n");

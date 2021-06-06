@@ -32,6 +32,7 @@ static void updateB0() {
   case SCR_TYPE_FFT2:
   case SCR_TYPE_FTLG:
   case SCR_TYPE_FFDB:
+  case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
     wavamp0 += WAV_AMP_STEP;
     if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
@@ -39,6 +40,8 @@ static void updateB0() {
     if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
     ++dbvdisp0;
     if (dbvdisp0 == FFT_DBV_RANGE_MAX) dbvdisp0 = 0;
+    spcamp += SPC_AMP_STEP;
+    if (spcamp == SPC_MAX_AMP) spcamp = SPC_MIN_AMP;    
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -212,12 +215,12 @@ void buildTitle(DynamicJsonDocument* jdoc) {
 /* Building a sign of application selected */
 void buildAppSign(DynamicJsonDocument* jdoc) {
   doc = jdoc;
-  static char appChar[6][4] = {
-    " ","SET","MNT","FFT","DIF","OBT"
+  static char appChar[7][4] = {
+    " ","SET","MNT","FFT","DUL","OBT","SPC"
   }; 
   int16_t appid = (*doc)["id"];
   appid /= 100;
-  if (appid != 0) {
+  if (appid != 0 && appid < 7) {
     tft.fillRect(DISP_CH_SIDE-10, (TITLE_HEAD-10), 50, 30, ILI9341_GREEN);
     putText(DISP_CH_SIDE, TITLE_HEAD, appChar[appid], ILI9341_BLACK, 2);
   }

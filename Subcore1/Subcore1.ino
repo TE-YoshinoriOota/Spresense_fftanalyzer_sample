@@ -50,7 +50,8 @@ void loop() {
     case APP_ID_WAV_WAV: sid = SID_REQ_WAV_WAV; break;
     case APP_ID_RAW_FIL: sid = SID_REQ_RAW_FIL; break;
     case APP_ID_ORBITDT: sid = SID_REQ_ORBITDT; break;
-    }
+    case APP_ID_SPECTRO: sid = SID_REQ_SPECTRO; break;
+  }
     
 #ifdef MP_DEBUG
     MPLog("Request data to Maincore: 0x%02x\n", sid);
@@ -220,6 +221,30 @@ void loop() {
     delay(100); /* delay for avoiding data flicker on LCD */
     return;
   }   
-  
+
+  if (sid == SID_REQ_SPECTRO) {
+#ifdef MP_DEBUG
+    MPLog("Spectrogram Data arrived\n");
+#endif  
+    /* check if th data is for FFT monitor application */
+    struct FftWavData *fft = (struct FftWavData*)data;
+    if (fft->len == 0) { /* sometimes Maincore send a null data, sp check it */
+      MPLog("fft->len(%d)\n", fft->len);
+      receivedData();
+      return;
+    }
+#ifdef MP_DEBUG
+    MPLog("fft->len(%d), fft->df(%f)\n", fft->len, fft->df);
+#endif  
+    appDrawSpectroGraph(fft->pFft, fft->len/2, fft->df);
+    receivedData();
+    
+    uint32_t delay_time = (uint32_t)(1000. / fft->df);
+#ifdef MP_DEBUG
+    MPLog("dt=%d\n", delay_time);
+#endif
+    delay(delay_time);
+    return;
+  }   
   return;
 }

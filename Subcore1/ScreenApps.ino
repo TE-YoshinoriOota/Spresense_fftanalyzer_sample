@@ -348,89 +348,33 @@ void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
 
 }
 
-float get_peak_to_peak(float* pData, int len, float* minValue, float* maxValue) {
-  uint32_t index;
+/*****************************************************************/
+/* application of drawind Raw WAV and Filtered WAV on each graph */
+/*****************************************************************/
+void appDrawSpectroGraph(float* pFft, int len, float df) {
+  int i,j;
 
-  arm_max_f32(pData, len, maxValue, &index);
-  arm_min_f32(pData, len, minValue, &index);
-
-  return maxValue - minValue;
-}
-
-float get_peak_frequency(float* pData, int len, float delta_f, float* maxValue) {
-  uint32_t index;
-  float delta, delta_spr;
-  float peakFs;
-
-  arm_max_f32(pData, len, maxValue, &index);
-
-  delta = 0.5*(pData[index-1] - pData[index+1])
-    / (pData[index-1] + pData[index+1] - (2.0f * pData[index]));
-  peakFs = (index + delta) * delta_f;
-  /*
-  delta_spr = 0.125*(pData[index-1] - pData[index+1])*(pData[index-1] - pData[index+1])
-    / (2.0f * pData[index] - (pData[index-1] + pData[index+1]));
-  *maxValue = delta_spr;
-  */
-  return peakFs;
-}
-
-void get_scale_param_for_wav(int* gskip, int* dskip, int len) {
-  if (len < FFT_GRAPH_WIDTH) {
-    *gskip = FFT_GRAPH_WIDTH / len; if (*gskip == 0) *gskip = 1;
-    *dskip = 1;
-  } else {
-    *gskip = 1;
-    *dskip = len / FFT_GRAPH_WIDTH; if (*dskip == 0) *dskip = 1;
-  }
 #ifdef SCR_DEBUG
-  MPLog("len0: %d  gskip: %d  dskip: %d\n", *len, *gskip, *dskip);
+  MPLog("len: %d  df: %1.4f\n", len, df); 
 #endif
+
+  pthread_mutex_lock(&mtx);
+  int s_amp = spcamp;
+  pthread_mutex_unlock(&mtx);
+
+  /*********** draw upper graph ***********/
+  // I should kick out this routine before this loop
+  int gskip, dskip;
+  int flen = get_scale_param_for_spectro(&gskip, &dskip, &fmaxdisp, len, df); 
+  MPLog("flen: %d gskip: %d dskip: %d fmaxdisp %d\n", flen, gskip, dskip, fmaxdisp);
+
+  // draw Spectrogram
+  drawSpectroGraph(pFft, flen, df, gskip, dskip, s_amp);
 }
 
 
-int get_scale_param_for_freq(int* fmaxdisp, int* gskip, int* dskip, int len, float df) {
-  /* check range of fmaxdisp */
-  float available_max_freq = df*(len-1);  /* = sampling_rate/2 */
-  if (*fmaxdisp > available_max_freq) *fmaxdisp = available_max_freq; 
 
-  /* calclate the display range */
-  int flen;
-  int target_fmax = *fmaxdisp;
-  int gskip_, dskip_;
-  do {
-    flen = (int)(target_fmax/df);
-    if (flen < FFT_GRAPH_WIDTH) {
-      gskip_ = round((float)(FFT_GRAPH_WIDTH) / flen); if (gskip_ == 0) gskip_ = 1;
-      dskip_ = 1;
-    } else {
-      gskip_ = 1;
-      dskip_ = round((float)(flen)/FFT_GRAPH_WIDTH); if (dskip_ == 0) dskip_ = 1;
-    }
-    target_fmax += 1000;
-  } while (*fmaxdisp > df*FFT_GRAPH_WIDTH*dskip_/gskip_);
-  if (flen > len) flen = len; /* fail safe */
-#ifdef SCR_DEBUG
-  MPLog("flen: %d  gskip: %d  dskip: %d\n", flen, gskip, dskip);
-#endif
-  *gskip = gskip_;
-  *dskip = dskip_;
-  return flen;
-}
-
-void get_log_scale_param(int* interval, float* f_min_log, float df) {
-  float log_f_unit;
-  int interval_; 
-  if (fmaxdisp < 4000)       log_f_unit = 2;
-  else if (fmaxdisp < 8000)  log_f_unit = 3;
-  else if (fmaxdisp < 24000) log_f_unit = 3;
-  else if (fmaxdisp < 96000) log_f_unit = 4;
-  if (log_f_unit > 1.0) interval_ = (FRAME_HEIGHT-1)/(int16_t)(log_f_unit);
-  else interval_ = FRAME_HEIGHT-1;
-  *f_min_log = (float)(log10(df)*interval_);
-  *interval = interval_; 
-  return;
-}
+/***************** draw graph functions ************************/
 
 void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip, int head, bool scale_update, int color) {
   int i, j;
@@ -569,4 +513,176 @@ void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int
                , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
                , color, df, interval, f_min_log
                , clear, display);
+}
+
+
+void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int amp) {
+  int i ,j;
+  const static int mean_size = 3;
+  static uint32_t duration[mean_size];
+  static int loop_cnt = 0;
+
+  const static int measurement_finished = 256;
+  static uint32_t measured_duration = 0;
+  static int measurement_cnt = 0;
+  
+  float maxValue;
+  
+  static uint32_t last_time_mills = 0;
+  uint32_t cur_time_mills = millis();
+  duration[loop_cnt] = cur_time_mills - last_time_mills;
+  last_time_mills = cur_time_mills;
+  uint32_t tmp_duration = 0;
+  for (int n = 0; n < mean_size; ++n) {
+    tmp_duration += duration[n];
+  }
+  tmp_duration /= mean_size;
+  if (++loop_cnt == mean_size) loop_cnt = 0;
+
+  if (measurement_finished > measurement_cnt) {
+    measured_duration = (measured_duration + tmp_duration)/2;
+    ++measurement_cnt;
+  } else {
+    /* draw horizontal */
+    plottimescale_for_spc(measured_duration, false);
+  }
+
+  /* draw vertical scale */
+  // need to add
+
+  /* display peak frequency and its value */
+  float peakFs = get_peak_frequency(pFft, len, df, &maxValue);
+  maxValue *= WAV_MAX_VOL; /* mV */
+  putPeakFrequencyInLinear(peakFs, maxValue, SPC_GRAPH_HEAD);
+
+  /* draw horizontal scale */
+  // need to add  (how to measure timescale???)
+
+  /* copy and scale the data to display */
+  memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
+  for (i = 0, j = 0; i < len && j < SPC_GRAPH_HEIGHT-1; i += dskip, ++j) {
+    spcDataBuf[j] = (float)(amp)*pFft[i];
+  }
+  len = len - (len - j*dskip); // adjustment
+
+  /* draw graph */
+  putBufSpcGraph(spcFrameBuf, spcDataBuf
+               , len, dskip, df
+               , SPC_GRAPH_SIDE, SPC_GRAPH_HEAD
+               , SPC_GRAPH_WIDTH, SPC_GRAPH_HEIGHT);
+} 
+
+
+/************** utility functions *********************/
+
+float get_peak_to_peak(float* pData, int len, float* minValue, float* maxValue) {
+  uint32_t index;
+
+  arm_max_f32(pData, len, maxValue, &index);
+  arm_min_f32(pData, len, minValue, &index);
+
+  return maxValue - minValue;
+}
+
+float get_peak_frequency(float* pData, int len, float delta_f, float* maxValue) {
+  uint32_t index;
+  float delta, delta_spr;
+  float peakFs;
+
+  arm_max_f32(pData, len, maxValue, &index);
+
+  delta = 0.5*(pData[index-1] - pData[index+1])
+    / (pData[index-1] + pData[index+1] - (2.0f * pData[index]));
+  peakFs = (index + delta) * delta_f;
+  /*
+  delta_spr = 0.125*(pData[index-1] - pData[index+1])*(pData[index-1] - pData[index+1])
+    / (2.0f * pData[index] - (pData[index-1] + pData[index+1]));
+  *maxValue = delta_spr;
+  */
+  return peakFs;
+}
+
+void get_scale_param_for_wav(int* gskip, int* dskip, int len) {
+  if (len < FFT_GRAPH_WIDTH) {
+    *gskip = FFT_GRAPH_WIDTH / len; if (*gskip == 0) *gskip = 1;
+    *dskip = 1;
+  } else {
+    *gskip = 1;
+    *dskip = len / FFT_GRAPH_WIDTH; if (*dskip == 0) *dskip = 1;
+  }
+#ifdef SCR_DEBUG
+  MPLog("len0: %d  gskip: %d  dskip: %d\n", *len, *gskip, *dskip);
+#endif
+}
+
+int get_scale_param_for_freq(int* fmaxdisp, int* gskip, int* dskip, int len, float df) {
+  /* check range of fmaxdisp */
+  float available_max_freq = df*(len-1);  /* = sampling_rate/2 */
+  if (*fmaxdisp > available_max_freq) *fmaxdisp = available_max_freq; 
+
+  /* calclate the display range */
+  int flen;
+  int target_fmax = *fmaxdisp;
+  int gskip_, dskip_;
+  do {
+    flen = (int)(target_fmax/df);
+    if (flen < FFT_GRAPH_WIDTH) {
+      gskip_ = round((float)(FFT_GRAPH_WIDTH) / flen); if (gskip_ == 0) gskip_ = 1;
+      dskip_ = 1;
+    } else {
+      gskip_ = 1;
+      dskip_ = round((float)(flen)/FFT_GRAPH_WIDTH); if (dskip_ == 0) dskip_ = 1;
+    }
+    target_fmax += 1000;
+  } while (*fmaxdisp > df*FFT_GRAPH_WIDTH*dskip_/gskip_);
+  if (flen > len) flen = len; /* fail safe */
+#ifdef SCR_DEBUG
+  MPLog("flen: %d  gskip: %d  dskip: %d\n", flen, gskip, dskip);
+#endif
+  *gskip = gskip_;
+  *dskip = dskip_;
+  return flen;
+}
+
+void get_log_scale_param(int* interval, float* f_min_log, float df) {
+  float log_f_unit;
+  int interval_; 
+  if (fmaxdisp < 4000)       log_f_unit = 2;
+  else if (fmaxdisp < 8000)  log_f_unit = 3;
+  else if (fmaxdisp < 24000) log_f_unit = 3;
+  else if (fmaxdisp < 96000) log_f_unit = 4;
+  if (log_f_unit > 1.0) interval_ = (FRAME_HEIGHT-1)/(int16_t)(log_f_unit);
+  else interval_ = FRAME_HEIGHT-1;
+  *f_min_log = (float)(log10(df)*interval_);
+  *interval = interval_; 
+  return;
+}
+
+int get_scale_param_for_spectro(int* gskip, int* dskip, int* fmaxdisp, int len, float df) {
+  /* check range of fmaxdisp */
+  float available_max_freq = df*(len-1);  /* = sampling_rate/2 */
+  if (*fmaxdisp > available_max_freq) *fmaxdisp = available_max_freq;  
+  
+  /* calclate the display range */
+  int flen;
+  int target_fmax = *fmaxdisp;
+  int gskip_, dskip_;
+  do {
+    flen = (int)(target_fmax/df);
+    if (flen < SPC_GRAPH_HEIGHT) {
+      gskip_ = round((float)(SPC_GRAPH_HEIGHT) / flen); if (gskip_ == 0) gskip_ = 1;
+      dskip_ = 1;
+    } else {
+      gskip_ = 1;
+      dskip_ = round((float)(flen)/SPC_GRAPH_HEIGHT); if (dskip_ == 0) dskip_ = 1;
+    }
+    target_fmax += 1000;
+  } while (*fmaxdisp > df*SPC_GRAPH_HEIGHT*dskip_/gskip_);
+  if (flen > len) flen = len; /* fail safe */
+#ifdef SCR_DEBUG
+  MPLog("flen: %d  gskip: %d  dskip: %d\n", flen, gskip, dskip);
+#endif
+  *gskip = gskip_;
+  *dskip = dskip_;
+  return flen;
 }
