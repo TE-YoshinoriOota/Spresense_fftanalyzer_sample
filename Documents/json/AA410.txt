@@ -1,0 +1,21 @@
+{
+"id":410
+,"title":"FFT LINE SETTING"
+,"type":2
+,"inp_title":" "
+,"inp_unit":"LINES"
+,"cur0":2
+,"cur1":0
+,"inp_num":5
+,"input":[100,200,400,800,1600]
+,"ch_disp":2
+,"ch0":1
+,"ch1":3
+,"back":400
+,"next0":420
+,"res_label":"line"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+}

@@ -1,0 +1,24 @@
+{
+"id":110
+,"title":"SAMPLING RATE"
+,"type":1
+,"item_num":3
+,"cur0":1
+,"cur1":0
+,"item0":"16 kHz"
+,"item1":"48 kHz"
+,"item2":"192 kHz"
+,"item0_v":16000
+,"item1_v":48000
+,"item2_v":192000
+,"ch_disp":0
+,"back":100
+,"next0":120
+,"res_label":"rate"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch0":2
+,"ch1":0
+}

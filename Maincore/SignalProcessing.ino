@@ -253,7 +253,8 @@ void calc_fft_data(struct FftWavData* fdata) {
   /* ch0 fft transform */
   memcpy(pTmp, pWav, sizeof(float)*g_samp); 
   fft->clear();
-  fft->fft_amp(pFft, pTmp);
+  //fft->fft_amp(pFft, pTmp);
+  fft->fft_scaled_amp(pFft, pTmp);
   //mTime = millis() - mTime;
   //MPLog("time: %d\n", mTime);
    
@@ -290,7 +291,8 @@ void calc_fft2_data(struct FftFftData* fdata) {
   /* ch0 fft transform */
   memcpy(pTmp, pWav, sizeof(float)*g_samp);
   fft->clear();
-  fft->fft_amp(pFft, pTmp);
+  // fft->fft_amp(pFft, pTmp);
+  fft->fft_scaled_amp(pFft, pTmp);
 
   /* digital fitering */
   /* which is better? lpf first? hpf first? */
@@ -306,7 +308,8 @@ void calc_fft2_data(struct FftFftData* fdata) {
   /* ch1 fft transform */
   memcpy(pTmp, pSubWav, sizeof(float)*g_samp);
   fft->clear();
-  fft->fft_amp(pSubFft, pTmp);
+  // fft->fft_amp(pSubFft, pTmp);
+  fft->fft_scaled_amp(pSubFft, pTmp);
   //mTime = millis() - mTime;
   //MPLog("time: %d\n", mTime);
 

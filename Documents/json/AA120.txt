@@ -1,0 +1,26 @@
+{
+"id":120
+,"title":"FFT WINDOW"
+,"type":1
+,"item_num":4
+,"cur0":1
+,"cur1":0
+,"item0":"RECTANGULAR"
+,"item1":"HAMMING"
+,"item2":"HANNING"
+,"item3":"FLATTOP"
+,"item0_v":0
+,"item1_v":1
+,"item2_v":2
+,"item3_v":3
+,"ch_disp":0
+,"back":110
+,"next0":000
+,"res_label":"win"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch0":2
+,"ch1":0
+}

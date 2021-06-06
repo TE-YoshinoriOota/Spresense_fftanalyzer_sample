@@ -24,17 +24,21 @@ static void updateB0() {
     curOperation(cur0, cur1);
     break; 
   case SCR_TYPE_WVFT:
-  case SCR_TYPE_FFT2:
   case SCR_TYPE_ORBT:
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
   case SCR_TYPE_WFLG:
+  case SCR_TYPE_WFDB:
+  case SCR_TYPE_FFT2:
   case SCR_TYPE_FTLG:
+  case SCR_TYPE_FFDB:
     pthread_mutex_lock(&mtx);
-    if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
-    if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
     wavamp0 += WAV_AMP_STEP;
+    if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
     fftamp0 += FFT_AMP_STEP;
+    if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
+    ++dbvdisp0;
+    if (dbvdisp0 == FFT_DBV_RANGE_MAX) dbvdisp0 = 0;
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -66,17 +70,22 @@ static void updateB1() {
     orbitamp += ORBIT_AMP_STEP;
     pthread_mutex_unlock(&mtx);
     break;
-  case SCR_TYPE_WVFT:
-  case SCR_TYPE_FFT2:
+
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
   case SCR_TYPE_WFLG:
+  case SCR_TYPE_WFDB:
+  case SCR_TYPE_WVFT:
   case SCR_TYPE_FTLG:
+  case SCR_TYPE_FFT2:
+  case SCR_TYPE_FFDB:
     pthread_mutex_lock(&mtx);
-    if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
-    if (fftamp1 == FFT_MAX_AMP) fftamp1 = FFT_MIN_AMP;
     wavamp1 += WAV_AMP_STEP;
+    if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
     fftamp1 += FFT_AMP_STEP;
+    if (fftamp1 == FFT_MAX_AMP) fftamp1 = FFT_MIN_AMP;
+    ++dbvdisp1;
+    if (dbvdisp1 == FFT_DBV_RANGE_MAX) dbvdisp1 = 0;
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -165,17 +174,20 @@ void clearScreen(DynamicJsonDocument* jdoc) {
   backScreen = -1;
   doc = jdoc;
 #ifdef DEMO_SETTING
-  fftamp0 = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp0 = WAV_MAX_AMP;
-  fftamp1 = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp1 = WAV_MAX_AMP;
+  fftamp0  = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp0  = WAV_MAX_AMP;
+  fftamp1  = FFT_MAX_AMP-85*FFT_AMP_STEP;
+  wavamp1  = WAV_MAX_AMP;
   orbitamp = ORBIT_MIN_AMP;
 #else
-  fftamp0 = FFT_MIN_AMP;
-  wavamp0 = WAV_MIN_AMP;
-  fftamp1 = FFT_MIN_AMP;
-  wavamp1 = WAV_MIN_AMP;
+  fftamp0  = FFT_MIN_AMP;
+  wavamp0  = WAV_MIN_AMP;
+  fftamp1  = FFT_MIN_AMP;
+  wavamp1  = WAV_MIN_AMP;
   orbitamp = ORBIT_MIN_AMP;
+  dbvdisp0 = FFT_DBV_INIT;
+  bdBVDisplay = false;
+  bLogDisplay = false;
 #endif
   plotscale0_done = false;
   plotscale1_done = false;

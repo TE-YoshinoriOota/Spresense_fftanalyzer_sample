@@ -1,0 +1,26 @@
+{
+"id":300
+,"title":"CHANNEL SELECT"
+,"type":1
+,"item_num":4
+,"cur0":2
+,"cur1":0
+,"item0":"CHANNEL 1"
+,"item1":"CHANNEL 2"
+,"item2":"CHANNEL 3"
+,"item3":"CHANNEL 4"
+,"item0_v":1
+,"item1_v":2
+,"item2_v":3
+,"item3_v":4
+,"ch_disp":0
+,"back":000
+,"next0":310
+,"res_label":"ch"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch0":2
+,"ch1":0
+}

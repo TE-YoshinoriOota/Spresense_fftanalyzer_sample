@@ -1,0 +1,21 @@
+{
+"id":320
+,"title":"LOW PASS FILTER"
+,"type":2
+,"inp_title":"CUT OFF FREQ."
+,"inp_unit":"Hz"
+,"cur0":1
+,"cur1":0
+,"inp_num":7
+,"input":[0,1000,2000,5000,10000,15000,20000]
+,"ch_disp":1
+,"ch0":3
+,"back":310
+,"next0":330
+,"res_label":"lpf"
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch1":0
+}

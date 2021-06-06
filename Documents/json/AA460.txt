@@ -1,0 +1,26 @@
+{
+"id":460
+,"title":"FFT X-AXIS SETTING"
+,"type":0
+,"item_num":3
+,"cur0":0
+,"cur1":0
+,"item0":"Freq Linear - mV"
+,"item1":"Freq Log    - mV"
+,"item2":"Freq Log    - dBV"
+,"item0_v":-1
+,"item1_v":-1
+,"item2_v":-1
+,"ch_disp":0
+,"back":450
+,"next0":470
+,"next1":471
+,"next2":472
+,"res_label":""
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch0":3
+,"ch1":0
+}

@@ -57,7 +57,6 @@ void FFTClassKai::create_coef(windowType_t type){
 }
 
 bool FFTClassKai::fft_init(){
-  printf("m_FFTLEN: %d\n", m_FFTLEN);
   switch (m_FFTLEN){
   case 256:
     arm_rfft_256_fast_init_f32(&S);
@@ -91,4 +90,24 @@ void FFTClassKai::fft_amp(float* pDst, float* pSrc){
   arm_cmplx_mag_f32(&tmpOutBuf[2], &pDst[1], m_FFTLEN/2 - 1);
   pDst[0] = tmpOutBuf[0];
   pDst[m_FFTLEN/2] = tmpOutBuf[1];
+}
+
+void FFTClassKai::fft_scaled_amp(float* pDst, float* pSrc) {
+  float signal_voltage, maxValue;
+  int index;
+  /* which is better, RMS or MAX? */
+  // arm_rms_f32(pSrc, m_FFTLEN, &signal_voltage); 
+  arm_max_f32(pSrc, m_FFTLEN, &signal_voltage, &index); 
+  arm_rfft_fast_f32(&S, pSrc, tmpOutBuf, 0);
+  /* 
+   * see the below site to get the reason for the strange arguments for arm_cmplx_mag_f32 
+   * https://stackoverflow.com/questions/42299932/dsp-libraries-rfft-strange-results
+   */  
+  arm_cmplx_mag_f32(&tmpOutBuf[2], &pDst[1], m_FFTLEN/2 - 1);
+  pDst[0] = tmpOutBuf[0];
+  pDst[m_FFTLEN/2] = tmpOutBuf[1];
+  arm_max_f32(pDst, m_FFTLEN, &maxValue, &index);
+  float scale = signal_voltage/maxValue;
+  arm_scale_f32(pDst, scale, tmpOutBuf, m_FFTLEN);
+  memcpy(pDst, tmpOutBuf, m_FFTLEN*sizeof(float));
 }

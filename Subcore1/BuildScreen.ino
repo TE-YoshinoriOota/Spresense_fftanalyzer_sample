@@ -29,96 +29,86 @@ void hardwareSetup() {
 /* Building LCD Screen */
 void BuildScreen(DynamicJsonDocument *doc) {
   cur_scrType = (*doc)["type"];
-#ifdef SCR_DEBUG
   MPLog("scr_type: %d\n", cur_scrType);
-#endif
   clearScreen(doc);
   buildTitle(doc);
   buildAppSign(doc);
   switch (cur_scrType) {
   case SCR_TYPE_PAGE: 
   case SCR_TYPE_MENU:
-#ifdef SCR_DEBUG
     MPLog("Building Page or Menu Screen\n");
-#endif
     buildMenu(doc); 
     buildChStatus(doc);
     break;
   case SCR_TYPE_INPT: 
   case SCR_TYPE_SCLE:
-#ifdef SCR_DEBUG
     MPLog("Building Input Screen\n");
-#endif
     buildInput(doc); 
     buildChStatus(doc);
     break;
   case SCR_TYPE_DMNU:
-#ifdef SCR_DEBUG
     MPLog("Building Double Menu Screen\n");
-#endif
     buildDMenu(doc);
     buildChStatus(doc);
     break;  
   case SCR_TYPE_MNTR:
-#ifdef SCR_DEBUG
     MPLog("Building Monitor Screen\n");
-#endif
     buildMonitor(doc);
     startApplication(APP_ID_MONDATA);
     buildChStatus(doc);
     break;
   case SCR_TYPE_WVFT:
-#ifdef SCR_DEBUG
     MPLog("Building FFT(Linear)-WAV Screen\n");
-#endif
     bLogDisplay = false;
     build2WayGraph(doc);
     startApplication(APP_ID_WAV_FFT);
     break;
   case SCR_TYPE_WFLG:
-#ifdef SCR_DEBUG
     MPLog("Building FFT(Log)-WAV Screen\n");
-#endif
     bLogDisplay = true;
     build2WayGraph(doc);
     startApplication(APP_ID_WAV_FFT);
     break;
   case SCR_TYPE_FFT2:
-#ifdef SCR_DEBUG
     MPLog("Building FFT-FFT(Linear) Screen\n");
-#endif
     bLogDisplay = false;
     build2WayGraph(doc);
     startApplication(APP_ID_FFT_FFT);
     break;
   case SCR_TYPE_FTLG:
-#ifdef SCR_DEBUG
     MPLog("Building FFT-FFT(Log) Screen\n");
-#endif
     bLogDisplay = true;
     build2WayGraph(doc);
     startApplication(APP_ID_FFT_FFT);
     break;
   case SCR_TYPE_ORBT:
-#ifdef SCR_DEBUG
     MPLog("Building Orbit Screen\n");
-#endif
     buildSpace(doc);
     startApplication(APP_ID_ORBITDT);
     break;
   case SCR_TYPE_FLTR:
-#ifdef SCR_DEBUG
     MPLog("Building RAW-FIL Screen\n");
-#endif
     build2WayGraph(doc);
     startApplication(APP_ID_RAW_FIL);
     break;
   case SCR_TYPE_WVWV:
-#ifdef SCR_DEBUG
     MPLog("Building WAV-WAV Screen\n");
-#endif
     build2WayGraph(doc);
     startApplication(APP_ID_WAV_WAV);
+    break;
+  case SCR_TYPE_WFDB:
+    MPLog("Building FFT(dBV)-WAV Screen\n");
+    bdBVDisplay = true;
+    bLogDisplay = true;
+    build2WayGraph(doc);
+    startApplication(APP_ID_WAV_FFT);
+    break;
+  case SCR_TYPE_FFDB:
+    MPLog("Building FFT(dBV)-WAV Screen\n");
+    bdBVDisplay = true;
+    bLogDisplay = true;
+    build2WayGraph(doc);
+    startApplication(APP_ID_FFT_FFT);
     break;
   }
   buildButton(doc);

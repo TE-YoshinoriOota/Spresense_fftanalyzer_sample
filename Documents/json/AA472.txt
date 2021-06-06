@@ -1,0 +1,17 @@
+{
+"id":472
+,"title":"FFT DUAL MONITOR"
+,"type":14
+,"cur0":0
+,"cur1":0
+,"ch_disp":1
+,"ch0":2
+,"back":460
+,"next0":000
+,"res_label":"non"
+,"B0":"WAV+"
+,"B1":" FFT+"
+,"B2":"BACK"
+,"B3":"NEXT"
+,"ch1":0
+}

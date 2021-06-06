@@ -49,6 +49,7 @@ public:
   bool begin(windowType_t type, float overlap);
   void fft(float* pDst, float* pSrc);
   void fft_amp(float* pDst, float* pSrc);
+  void fft_scaled_amp(float* pDst, float* pSrc);
   void clear();
   void end();
 

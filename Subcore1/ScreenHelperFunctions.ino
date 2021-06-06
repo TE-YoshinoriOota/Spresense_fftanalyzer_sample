@@ -53,24 +53,75 @@ bool putText(int x, int y, String str, int color, int tsize) {
   return false;
 }
 
+void putMaxMinVoltage(float maxVoltage, float minVoltage, int head) {
+  tft.fillRect(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+               , head + FFT_GRAPH_HEIGHT/4 -4 
+               , 50 , 10 , ILI9341_BLACK);
+  tft.fillRect(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+               , head + FFT_GRAPH_HEIGHT*3/4 -4 
+               , 50 , 10 , ILI9341_BLACK);
+  
+  /* omitted this, because of no space for display */
+  /*
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +46
+               , head + FFT_GRAPH_HEIGHT/4 -4
+               , String("mV"), ILI9341_CYAN, 1);   
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +46
+               , head + FFT_GRAPH_HEIGHT*3/4 -4
+               , String("mV"), ILI9341_BLUE, 1);   
+  */
+  
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +10
+               , head + FFT_GRAPH_HEIGHT/4 -4
+               , String("+") + String(maxVoltage,2), ILI9341_CYAN, 1);   
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +10
+               , head+ FFT_GRAPH_HEIGHT*3/4 -4
+               , String(minVoltage,2), ILI9341_BLUE, 1);     
+}
 
 void putPeakFrequencyInLinear(float peakFs, float value, int head) {
-  char strbuf[8] = {};
-
+  const static int STRLEN = 6;
+  char strbuf[STRLEN] = {};
+  char tmpbuf[STRLEN] = {};
   tft.fillRect(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
         , head + FFT_GRAPH_HEIGHT*2/4 -4 
-        , 53 , 30 , ILI9341_BLACK);
+        , 40 , 30 , ILI9341_BLACK);
   putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +10
         , head + FFT_GRAPH_HEIGHT*1/4 -4
-        , String("= PEAK ="), ILI9341_WHITE, 1); 
-  sprintf(strbuf, "%6d", (int)(peakFs)); 
+        , String("= PEAK ="), ILI9341_WHITE, 1);
+         
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +46
+        , head + FFT_GRAPH_HEIGHT*2/4 -4
+        , "Hz", ILI9341_GREEN, 1);
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +46
+        , head + FFT_GRAPH_HEIGHT*3/4 -10
+        , "mV", ILI9341_GREEN, 1);
+        
+  sprintf(strbuf, "%5d", (int)(peakFs)); 
   putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
         , head + FFT_GRAPH_HEIGHT*2/4 -4
-        , String(strbuf) + " Hz", ILI9341_GREEN, 1);
-  sprintf(strbuf, "%6d", (int)(value));             
+        , String(strbuf), ILI9341_GREEN, 1);
+  sprintf(strbuf, "%3.1f", value);
+  /* right justified on sprintf doesn't work, so correct the string manually */
+  memset(tmpbuf, ' ', sizeof(char)*STRLEN);
+  int cnt = 0;
+  for (int i = 0; i < STRLEN; ++i) {
+    if (strbuf[i] >= 0x2B && strbuf[i] <= 0x7E) {
+      ++cnt;
+    }  
+  }
+  tmpbuf[STRLEN-1]='\0';
+  if (cnt > 0) {
+    for (int i = 0; i < STRLEN-1; ++i) {
+      if (strbuf[i] >= 0x2B && strbuf[i] <= 0x7E) {
+        tmpbuf[STRLEN-cnt-1] = strbuf[i];
+        --cnt;      
+      } 
+    }
+  }
   putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
         , head + FFT_GRAPH_HEIGHT*3/4 -10
-        , String(strbuf) + " mV", ILI9341_GREEN, 1);
+        , String(tmpbuf), ILI9341_GREEN, 1);
   
 }
 
@@ -80,7 +131,7 @@ void putPeakFrequencyInPower(float peakFs, float value) {
 }
 
 /* Draw a linear graph on FFT/WAV applications */
-void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
+void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
                      , float max_vol, int gskip, int side, int head, int width, int height
                      , uint16_t color, float df, int offset, bool clr, bool draw) {
                       
@@ -105,7 +156,7 @@ void putBufLinearGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
 
 
 /* Draw a log graph on FFT applications */
-void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
+void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
                   , float max_vol, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr, bool draw, int offset) {
@@ -133,8 +184,127 @@ void putBufLogGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
 }
 
+
+/* Draw a log graph on FFT applications */
+void putBufdBVGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
+                  , int max_dbv, int min_dbv, int len, int dskip, int side, int head, int width, int height
+                  , uint16_t color, float df, int interval, double f_min_log
+                  , bool clr, bool draw, int offset) {
+  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  len /= dskip;
+  int range = max_dbv - min_dbv;
+  float value;
+  for (int n = 0; n < len; ++n) {
+    value = (graph[n] - min_dbv)/range;
+    int val0 = (int)(value*(FRAME_WIDTH-offset)) + offset;
+    if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
+    else if (val0 < 0)       val0 = 0;
+    val0 = FRAME_WIDTH - val0;
+    value = (graph[n+1] - min_dbv)/range;
+    int val1 = (int)(value*(FRAME_WIDTH-offset)) + offset;
+    if (val1 >= FRAME_WIDTH) val1 = FRAME_WIDTH-1;
+    else if (val1 < 0)       val1 = 0;
+    val1 = FRAME_WIDTH - val1;
+    
+    /* calculate log cordination */
+    int iy0 = log10(n*df*dskip)*interval - f_min_log;         
+    if (iy0 < 0) iy0 = 0; if (iy0 >= FRAME_HEIGHT) iy0 = FRAME_HEIGHT-1;
+    int iy1 = log10((n+1)*df*dskip)*interval - f_min_log; 
+    if (iy1 < 0) iy1 = 0; if (iy1 >= FRAME_HEIGHT) iy1 = FRAME_HEIGHT-1;
+    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, color);
+  }
+
+  if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+}
+
 /* plot virtical scale */
 void plotvirticalscale(int head, int mag, bool ac) {
+
+  tft.fillRect(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3, head-4
+             , SCREEN_WIDTH-(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3)
+             , FFT_GRAPH_HEIGHT+7, ILI9341_BLACK);
+
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH
+             , head
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3
+             , head
+             , ILI9341_YELLOW);  
+
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH
+             , head + FFT_GRAPH_HEIGHT/2
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3
+             , head + FFT_GRAPH_HEIGHT/2
+             , ILI9341_YELLOW); 
+  
+             
+  tft.drawLine(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH
+             , head + FFT_GRAPH_HEIGHT
+             , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3
+             , head + FFT_GRAPH_HEIGHT
+             , ILI9341_YELLOW);  
+
+  if (ac == true) {
+    float maxVoltageInMilli = WAV_MAX_VOL/mag;
+    float maxVoltageInMicro = WAV_MAX_VOL*1000/mag;
+    String maxLabel;
+    if (maxVoltageInMilli > 1.0) {
+      maxLabel = String(" ") + String(maxVoltageInMilli, 1) + String(" mV");
+    } else {
+      maxLabel = String(" ") + String(maxVoltageInMicro, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8
+          , head -4
+          , maxLabel, ILI9341_YELLOW, 1);
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8
+          , head + FFT_GRAPH_HEIGHT/2 -4
+          , " 0.0", ILI9341_YELLOW, 1);
+             
+    float minVoltageInMilli = -WAV_MAX_VOL/mag;
+    float minVoltageInMicro = -WAV_MAX_VOL*1000/mag;
+    String minLabel;
+    if (minVoltageInMilli < -1.0) {
+      minLabel = String(minVoltageInMilli, 1) + String(" mV");
+    } else {
+      minLabel = String(minVoltageInMicro, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8
+          , head + FFT_GRAPH_HEIGHT -4
+          , minLabel, ILI9341_YELLOW, 1);
+  } else {
+    float maxVoltageInMilli = WAV_MAX_VOL/mag;
+    float maxVoltageInMicro = WAV_MAX_VOL*1000/mag;
+    String maxLabel;
+    if (maxVoltageInMilli > 1.0) {
+      maxLabel = String(" ") + String(maxVoltageInMilli, 1) + String(" mV");
+    } else {
+      maxLabel = String(" ") + String(maxVoltageInMicro, 1) + String(" uV");      
+    }
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+          , head -4
+          , maxLabel, ILI9341_YELLOW, 1);    
+    /* To make a space for statistic data on display, midLabel was omitted */ 
+    /*     
+    float midVoltage = 22.750/mag;
+    String midLabel;
+    if (midVoltage > 1.0) {
+      midLabel = String(" ") + String(midVoltage, 1) + String(" mV");
+    } else {
+      midLabel = String(" ") + String(midVoltage*1000, 1) + String(" uV");      
+    } 
+ 
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head + FFT_GRAPH_HEIGHT/2 -4
+               , midLabel, ILI9341_YELLOW, 1);
+    */
+
+    
+    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+          , head + FFT_GRAPH_HEIGHT -4
+          , " 0.0", ILI9341_YELLOW, 1);
+  }
+}
+
+/* plot virtical scale in dBV */
+void plotvirticalscale_dbv(int head, int maxdbv, int mindbv) {
 
   tft.fillRect(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3, head-4
              , SCREEN_WIDTH-(FFT_GRAPH_SIDE+FFT_GRAPH_WIDTH+3)
@@ -153,58 +323,15 @@ void plotvirticalscale(int head, int mag, bool ac) {
              , FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH+3, head + FFT_GRAPH_HEIGHT
              , ILI9341_YELLOW);  
 
-  if (ac == true) {
-    float maxVoltageInMilli = WAV_MAX_VOL/mag;
-    float maxVoltageInMicro = WAV_MAX_VOL*1000/mag;
-    String maxLabel;
-    if (maxVoltageInMilli > 1.0) {
-      maxLabel = String(" ") + String(maxVoltageInMilli, 1) + String(" mV");
-    } else {
-      maxLabel = String(" ") + String(maxVoltageInMicro, 1) + String(" uV");      
-    }
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head -4
-               , maxLabel, ILI9341_YELLOW, 1);
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head + FFT_GRAPH_HEIGHT/2 -4
-               , " 0.0", ILI9341_YELLOW, 1);   
-    float minVoltageInMilli = -WAV_MAX_VOL/mag;
-    float minVoltageInMicro = -WAV_MAX_VOL*1000/mag;
-    String minLabel;
-    if (minVoltageInMilli < -1.0) {
-      minLabel = String(minVoltageInMilli, 1) + String(" mV");
-    } else {
-      minLabel = String(minVoltageInMicro, 1) + String(" uV");      
-    }
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +8, head + FFT_GRAPH_HEIGHT -4
-               , minLabel, ILI9341_YELLOW, 1);
-  } else {
-    float maxVoltageInMilli = PEAK_TO_PEAK_VOL/mag;
-    float maxVoltageInMicro = PEAK_TO_PEAK_VOL*1000/mag;
-    String maxLabel;
-    if (maxVoltageInMilli > 1.0) {
-      maxLabel = String(" ") + String(maxVoltageInMilli, 1) + String(" mV");
-    } else {
-      maxLabel = String(" ") + String(maxVoltageInMicro, 1) + String(" uV");      
-    }
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head -4
-               , maxLabel, ILI9341_YELLOW, 1);    
-    /* To make a space for statistic data on display, midLabel was omitted */ 
-    /*     
-    float midVoltage = 22.750/mag;
-    String midLabel;
-    if (midVoltage > 1.0) {
-      midLabel = String(" ") + String(midVoltage, 1) + String(" mV");
-    } else {
-      midLabel = String(" ") + String(midVoltage*1000, 1) + String(" uV");      
-    } 
- 
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head + FFT_GRAPH_HEIGHT/2 -4
-               , midLabel, ILI9341_YELLOW, 1);
-    */
-
+  String maxLabel = String(" ") + String(maxdbv) + String(" dBV");
+  String minLabel = String(" ") + String(mindbv) + String(" dBV");  
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+        , head -4
+        , maxLabel, ILI9341_YELLOW, 1);    
     
-    putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4, head + FFT_GRAPH_HEIGHT -4
-               , " 0.0", ILI9341_YELLOW, 1);
-  }
+  putText(FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH +4
+        , head + FFT_GRAPH_HEIGHT -4
+        , minLabel, ILI9341_YELLOW, 1);
 }
 
 
@@ -218,11 +345,11 @@ void plottimescale(float df, int len, int head, bool redraw) {
   MPLog("max_time: %f df: %f srate: %f, len: %d\n", max_time, df, srate, len);
   
   float dtime;
-  if (max_time < 2.0) dtime        = 0.10;   // 1.3 msec
-  else if (max_time < 5.0) dtime   = 0.25;   // 2.7 msec
-  else if (max_time < 10.0) dtime  = 0.50;   // 5.3 msec
-  else if (max_time < 15.0) dtime  = 1.00;   // 10.7 msec
-  else if (max_time < 30.0) dtime  = 2.00;   // 21.3 msec
+  if (max_time < 2.0)        dtime = 0.10;   // 1.3 msec
+  else if (max_time < 5.0)   dtime = 0.25;   // 2.7 msec
+  else if (max_time < 10.0)  dtime = 0.50;   // 5.3 msec
+  else if (max_time < 15.0)  dtime = 1.00;   // 10.7 msec
+  else if (max_time < 30.0)  dtime = 2.00;   // 21.3 msec
   else if (max_time < 100.0) dtime = 5.00;   // 32, 42.6, 64, 85.3 msec
   else if (max_time < 200.0) dtime = 10.0;   // 125.9  msec
   else dtime = 20.0;                         // 256.0  msec
@@ -464,7 +591,7 @@ void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
 
 // tentative implemntation. no test/no check have been made.
 // if you want to use this, please do look into the code before using.
-void putLcdLineGraph(int graph[], int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
+void putLcdLineGraph(float graph[], int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
   tft.fillRect(x, y, w, h, ILI9341_BLACK);
   int i,j;
   for (i = x, j = 0; i < w-1; i+=gskip, ++j) {
@@ -481,7 +608,7 @@ void putLcdLineGraph(int graph[], int gskip, int x, int y, int w, int h, uint16_
 
 // tentative implemntation. no test/no check have been made.
 // if you want to use this, please do look into the code before using.
-void putBufFillGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], int graph[]
+void putBufFillGraph(uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT], float graph[]
                    , int gskip, int x, int y, int w, int h, uint16_t color, int y_axis) {
   memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
   int m, n;
