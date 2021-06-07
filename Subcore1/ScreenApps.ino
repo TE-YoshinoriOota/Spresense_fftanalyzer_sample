@@ -25,14 +25,12 @@ void appSensorValue(float acc, float vel, float dis) {
 void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
   int i,j;
   bool scale_update = false;
-  static int last_w_amp = -1;
-  static int last_f_amp = -1;
   static int last_f_dbv = -1;
+  static int last_amp   = -1;
     
   pthread_mutex_lock(&mtx);
-  int w_amp = wavamp0;
-  int f_amp = fftamp1;
-  int f_dbv = dbvdisp1;
+  int g_amp = amp;
+  int f_dbv = dbvdisp;
   pthread_mutex_unlock(&mtx);
 
 #ifdef SCR_DEBUG
@@ -44,13 +42,14 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
   int gskip, dskip;
   get_scale_param_for_wav(&gskip, &dskip, len0); 
 
-  if (w_amp != last_w_amp) {
-    last_w_amp = w_amp;
+  if (g_amp != last_amp) {
+    last_amp = g_amp;
     scale_update = true;
   }
   
-  drawWavGraph(pWav, len0, df, w_amp, gskip, dskip, FFT_GRAPH0_HEAD, scale_update);
+  drawWavGraph(pWav, len0, df, g_amp, gskip, dskip, FFT_GRAPH0_HEAD, scale_update);
   scale_update = false;
+
 
 
   /*********** draw lower graph ***********/
@@ -65,12 +64,12 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
     get_log_scale_param(&interval, &f_min_log, df);
 
     /* draw vertical scale */
-    if (f_amp != last_f_amp) {
+    if (g_amp != last_amp) {
       scale_update = true;
-      last_f_amp = f_amp;
+      last_amp = g_amp;
     }
 
-    drawLogFftGraph(pFft, flen, df, f_amp, gskip, dskip , interval, f_min_log
+    drawLogFftGraph(pFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
                   , FFT_GRAPH1_HEAD, scale_update);
     scale_update = false;
 
@@ -92,11 +91,11 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
    
   } else {
     /* draw vertical scale */
-    if (f_amp != last_f_amp) {
-      last_f_amp = f_amp;
+    if (g_amp != last_amp) {
+      last_amp = g_amp;
       scale_update = true;
     }
-    drawLinearFftGraph(pFft, flen, df, f_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
+    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
     scale_update = false;
   }
 }
@@ -106,17 +105,13 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
 void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
   int i, j;
   float peakFs, maxValue;
-  static int last_f_amp0 = -1;
-  static int last_f_amp1 = -1;
-  static int last_f_dbv0 = -1;
-  static int last_f_dbv1 = -1;
+  static int last_amp = -1;
+  static int last_f_dbv = -1;
   bool scale_update = false;
   
   pthread_mutex_lock(&mtx);
-  int f_amp0 = fftamp0;
-  int f_amp1 = fftamp1;
-  int f_dbv0 = dbvdisp0;
-  int f_dbv1 = dbvdisp1;
+  int g_amp  = amp;
+  int f_dbv  = dbvdisp;
   pthread_mutex_unlock(&mtx);
 
   /*********** draw upper graph ***********/
@@ -132,12 +127,12 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     float f_min_log;
     get_log_scale_param(&interval, &f_min_log, df);
 
-    if (f_amp0 != last_f_amp0) {
-      last_f_amp0 = f_amp0;
+    if (g_amp != last_amp) {
+      last_amp = g_amp;
       scale_update = true;
     }
 
-    drawLogFftGraph(pFft, flen, df, f_amp0, gskip, dskip , interval, f_min_log
+    drawLogFftGraph(pFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
                   , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
     scale_update = false;
 
@@ -149,23 +144,23 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     float f_min_log;
     get_log_scale_param(&interval, &f_min_log, df);
 
-    if (f_dbv0 != last_f_dbv0) {
-      last_f_dbv0 = f_dbv0;
+    if (f_dbv != last_f_dbv) {
+      last_f_dbv = f_dbv;
       scale_update = true;
     }
 
-    drawDbvFftGraph(pFft, flen, df, f_dbv0, gskip, dskip, interval, f_min_log
+    drawDbvFftGraph(pFft, flen, df, f_dbv, gskip, dskip, interval, f_min_log
                   , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
     scale_update = false;
 
   } else {
 
     /* draw vertical scale */
-    if (f_amp0 != last_f_amp0) {
-      last_f_amp0 = f_amp0;
+    if (g_amp != last_amp) {
+      last_amp = g_amp;
       scale_update = true;
     }
-    drawLinearFftGraph(pFft, flen, df, f_amp0, gskip, dskip
+    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip
                      , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
     scale_update = false;
 
@@ -180,12 +175,12 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     float f_min_log;
     get_log_scale_param(&interval, &f_min_log, df);
 
-    if (f_amp1 != last_f_amp1) {
-      last_f_amp1 = f_amp1;
+    if (g_amp != last_amp) {
+      last_amp = g_amp;
       scale_update = true;
     }
 
-    drawLogFftGraph(pSubFft, flen, df, f_amp1, gskip, dskip , interval, f_min_log
+    drawLogFftGraph(pSubFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
                   , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
                   , true, false, false);
 
@@ -194,10 +189,9 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
       pSubFft[i] = abs(pFft[i] - pSubFft[i]);
     }
 
-    drawLogFftGraph(pSubFft, flen, df, f_amp1, gskip, dskip , interval, f_min_log
+    drawLogFftGraph(pSubFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
                   , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
                   , false, false, true);
-
     scale_update = false;
 
   } else if (bLogDisplay == true && bdBVDisplay == true) {
@@ -208,12 +202,12 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
     float f_min_log;
     get_log_scale_param(&interval, &f_min_log, df);
 
-    if (f_dbv1 != last_f_dbv1) {
-      last_f_dbv1 = f_dbv1;
+    if (f_dbv != last_f_dbv) {
+      last_f_dbv = f_dbv;
       scale_update = true;
     }
 
-    drawDbvFftGraph(pSubFft, flen, df, f_dbv1, gskip, dskip, interval, f_min_log
+    drawDbvFftGraph(pSubFft, flen, df, f_dbv, gskip, dskip, interval, f_min_log
                   , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
                   , true, false, false);
 
@@ -222,21 +216,20 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
       pSubFft[i] = abs(pFft[i] - pSubFft[i]);
     }
 
-    drawDbvFftGraph(pSubFft, flen, df, f_dbv1, gskip, dskip , interval, f_min_log
+    drawDbvFftGraph(pSubFft, flen, df, f_dbv, gskip, dskip , interval, f_min_log
                   , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
                   , false, false, true);
-
     scale_update = false;
 
   } else {
 
     /* draw vertical scale */
-    if (f_amp1 != last_f_amp1) {
-      last_f_amp1 = f_amp1;
+    if (g_amp != last_amp) {
+      last_amp = g_amp;
       scale_update = true;
     }
 
-    drawLinearFftGraph(pSubFft, flen, df, f_amp1, gskip, dskip
+    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
                      , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
                      , true, false, false);
 
@@ -245,7 +238,7 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
       pSubFft[i] = abs(pFft[i] - pSubFft[i]);
     }
 
-    drawLinearFftGraph(pSubFft, flen, df, f_amp1, gskip, dskip
+    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
                      , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
                      , false, false, true);
     scale_update = false;
@@ -310,13 +303,16 @@ void appDrawOrbitGraph(struct OrbitData* odata) {
 /* application of drawind Raw WAV and Filtered WAV on each graph */
 void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
   int i,j;
+
   static int last_w_amp0 = -1;
   static int last_w_amp1 = -1;
+  static int last_amp = -1;
   bool scale_update = false;
 
   pthread_mutex_lock(&mtx);
-  int w_amp0 = wavamp0;
-  int w_amp1 = wavamp1;
+  //int w_amp0 = wavamp0;
+  //int w_amp1 = wavamp1;
+  int g_amp  = amp;
   pthread_mutex_unlock(&mtx);
 
   /* draw upper graph */
@@ -329,21 +325,21 @@ void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
   int gskip, dskip;
   get_scale_param_for_wav(&gskip, &dskip, len); 
 
-  if (w_amp0 != last_w_amp0) {
-    last_w_amp0 = w_amp0;
+  if (g_amp != last_amp) {
+    last_amp = g_amp;
     scale_update = true;
   }
   
-  drawWavGraph(pWav, len, df, w_amp0, gskip, dskip, FFT_GRAPH0_HEAD, scale_update);
+  drawWavGraph(pWav, len, df, g_amp, gskip, dskip, FFT_GRAPH0_HEAD, scale_update);
   scale_update = false;
 
   /*********** draw lower graph ***********/
-  if (w_amp1 != last_w_amp1) {
-    last_w_amp1 = w_amp1;
+  if (g_amp != last_amp) {
+    last_amp = g_amp;
     scale_update = true;
   }
   
-  drawWavGraph(pSubWav, len, df, w_amp1, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
+  drawWavGraph(pSubWav, len, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
   scale_update = false;
 
 }
@@ -353,30 +349,42 @@ void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
 /*****************************************************************/
 void appDrawSpectroGraph(float* pFft, int len, float df) {
   int i,j;
+  static int last_amp = -1;
+  bool scale_update = false;
 
 #ifdef SCR_DEBUG
   MPLog("len: %d  df: %1.4f\n", len, df); 
 #endif
 
   pthread_mutex_lock(&mtx);
-  int s_amp = spcamp;
+  int g_amp = spcamp;
+  //int g_amp = amp;
   pthread_mutex_unlock(&mtx);
 
+  if (g_amp != last_amp) {
+    last_amp = g_amp;
+    scale_update = true;
+  }
+
   /*********** draw upper graph ***********/
-  // I should kick out this routine before this loop
+  // I should kick out this routine from this loop
   int gskip, dskip;
   int flen = get_scale_param_for_spectro(&gskip, &dskip, &fmaxdisp, len, df); 
+
+#ifdef SCR_DEBUG
   MPLog("flen: %d gskip: %d dskip: %d fmaxdisp %d\n", flen, gskip, dskip, fmaxdisp);
+#endif
 
   // draw Spectrogram
-  drawSpectroGraph(pFft, flen, df, gskip, dskip, s_amp);
+  drawSpectroGraph(pFft, flen, df, gskip, dskip, g_amp, scale_update);
 }
 
 
 
 /***************** draw graph functions ************************/
 
-void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip, int head, bool scale_update, int color) {
+void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip
+                , int head, bool scale_update, int color) {
   int i, j;
   float maxValue, minValue;
 
@@ -408,7 +416,7 @@ void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip,
 
 
 void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
-                      , int head, bool scale_update, int color, bool peakdisp, bool clear, bool display) {
+                      , int head, bool scale_update, int color, bool peakdisp, bool clr, bool disp) {
   int i, j;
   float maxValue, minValue;
 
@@ -426,7 +434,7 @@ void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int 
   plotlinearscale(df, gskip, dskip, head, false);
 
   /* copy and scale the data to display */
-  if (display == true)  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
+  if (disp == true)  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
   for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
     graphDataBuf[j] = (float)(amp*pFft[i]*WAV_MAX_VOL);
   }
@@ -436,7 +444,7 @@ void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int 
                   , WAV_MAX_VOL, gskip
                   , FFT_GRAPH_SIDE, head
                   , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, color, df, 0
-		              , clear, display);
+		              , clr, disp);
 }
 
 void drawLogFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
@@ -463,7 +471,6 @@ void drawLogFftGraph(float* pFft, int len, float df, int amp, int gskip, int dsk
   for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
     graphDataBuf[j] = (float)(amp*pFft[i]*WAV_MAX_VOL);
   }
-  len = len - (len - j*dskip); // adjustment
 
   /* draw graph */
   putBufLogGraph(frameBuf, graphDataBuf
@@ -486,7 +493,9 @@ void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int
   int mindbv = dbvrange[dbvdisp][1];
   if (scale_update) {
     plotvirticalscale_dbv(head, maxdbv, mindbv);
+#ifdef SCR_DEBUG
     MPLog("%d - %d [dBV]\n", maxdbv, mindbv);
+#endif
   }
 
   /* display peak frequency and its value */
@@ -496,15 +505,16 @@ void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int
     putPeakFrequencyInLinear(peakFs, maxValue, head);
   }
 
-  /* draw horizontal scale */   
-  plotlogscale(interval, df, f_min_log, head, false);
+  /* draw horizontal scale */ 
+  if (scale_update) {
+    plotlogscale(interval, df, f_min_log, head, false);
+  }
 
   /* copy and scale the data to display */
   memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
   for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
     graphDataBuf[j] = (float)(20*log10(pFft[i]*WAV_MAX_VOL/1000));
   }
-  len = len - (len - j*dskip); // adjustment
     
   /* draw graph */
   putBufdBVGraph(frameBuf, graphDataBuf
@@ -516,58 +526,45 @@ void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int
 }
 
 
-void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int amp) {
+void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int amp, bool scale_update) {
   int i ,j;
-  const static int mean_size = 3;
-  static uint32_t duration[mean_size];
-  static int loop_cnt = 0;
-
-  const static int measurement_finished = 256;
-  static uint32_t measured_duration = 0;
-  static int measurement_cnt = 0;
-  
+  const static int wait_for_stable = 5;
+  static uint32_t last_time_mills = 0;
+  static uint32_t duration = 0;
   float maxValue;
   
-  static uint32_t last_time_mills = 0;
-  uint32_t cur_time_mills = millis();
-  duration[loop_cnt] = cur_time_mills - last_time_mills;
-  last_time_mills = cur_time_mills;
-  uint32_t tmp_duration = 0;
-  for (int n = 0; n < mean_size; ++n) {
-    tmp_duration += duration[n];
-  }
-  tmp_duration /= mean_size;
-  if (++loop_cnt == mean_size) loop_cnt = 0;
-
-  if (measurement_finished > measurement_cnt) {
-    measured_duration = (measured_duration + tmp_duration)/2;
-    ++measurement_cnt;
-  } else {
-    /* draw horizontal */
-    plottimescale_for_spc(measured_duration, false);
+  /* draw horizontal scale */
+  if (loop_counter < wait_for_stable) {
+    uint32_t cur_time_mills = millis();
+    duration = cur_time_mills - last_time_mills;
+    last_time_mills = cur_time_mills;
+    ++loop_counter;
+  } else if (loop_counter == wait_for_stable) {
+    MPLog("duration %d\n", duration);
+    plottimescale_for_spc(duration, false);
+    ++loop_counter;
   }
 
   /* draw vertical scale */
-  // need to add
-
+  if (scale_update) {
+    plotverticalscale_spc(df, len, gskip, dskip, false);
+    putColorRange(amp);
+  }
+  
   /* display peak frequency and its value */
   float peakFs = get_peak_frequency(pFft, len, df, &maxValue);
-  maxValue *= WAV_MAX_VOL; /* mV */
-  putPeakFrequencyInLinear(peakFs, maxValue, SPC_GRAPH_HEAD);
-
-  /* draw horizontal scale */
-  // need to add  (how to measure timescale???)
+  maxValue *= WAV_MAX_VOL; // mV 
+  putPeakFrequencySpc(peakFs, maxValue);
 
   /* copy and scale the data to display */
   memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
-  for (i = 0, j = 0; i < len && j < SPC_GRAPH_HEIGHT-1; i += dskip, ++j) {
-    spcDataBuf[j] = (float)(amp)*pFft[i];
+  for (i = 0, j = 0; i < len && j < SPC_GRAPH_HEIGHT-1; i += dskip) {
+    for (int n = 0; n < gskip; ++n, ++j) spcDataBuf[j] = (float)(amp)*pFft[i];
   }
-  len = len - (len - j*dskip); // adjustment
-
+  
   /* draw graph */
   putBufSpcGraph(spcFrameBuf, spcDataBuf
-               , len, dskip, df
+               , len, gskip, dskip, df
                , SPC_GRAPH_SIDE, SPC_GRAPH_HEAD
                , SPC_GRAPH_WIDTH, SPC_GRAPH_HEIGHT);
 } 
@@ -660,25 +657,23 @@ void get_log_scale_param(int* interval, float* f_min_log, float df) {
 
 int get_scale_param_for_spectro(int* gskip, int* dskip, int* fmaxdisp, int len, float df) {
   /* check range of fmaxdisp */
-  float available_max_freq = df*(len-1);  /* = sampling_rate/2 */
-  if (*fmaxdisp > available_max_freq) *fmaxdisp = available_max_freq;  
+  int fmaxdisp_ = *fmaxdisp;
+  int available_max_freq = (int)(df*(len-1));  /* = sampling_rate/2 */
+  if (fmaxdisp_ > available_max_freq) fmaxdisp_ = available_max_freq; 
+
+  int flen = len*fmaxdisp_/available_max_freq;
   
   /* calclate the display range */
-  int flen;
-  int target_fmax = *fmaxdisp;
   int gskip_, dskip_;
-  do {
-    flen = (int)(target_fmax/df);
-    if (flen < SPC_GRAPH_HEIGHT) {
-      gskip_ = round((float)(SPC_GRAPH_HEIGHT) / flen); if (gskip_ == 0) gskip_ = 1;
-      dskip_ = 1;
-    } else {
-      gskip_ = 1;
-      dskip_ = round((float)(flen)/SPC_GRAPH_HEIGHT); if (dskip_ == 0) dskip_ = 1;
-    }
-    target_fmax += 1000;
-  } while (*fmaxdisp > df*SPC_GRAPH_HEIGHT*dskip_/gskip_);
-  if (flen > len) flen = len; /* fail safe */
+  if (flen < SPC_GRAPH_HEIGHT) {
+    gskip_ = round((float)(SPC_GRAPH_HEIGHT)/flen); if (gskip_ == 0) gskip_ = 1;
+    dskip_ = 1;
+  } else {
+    gskip_ = 1;
+    dskip_ = round((float)(flen)/SPC_GRAPH_HEIGHT); if (dskip_ == 0) dskip_ = 1;
+  }
+  if (flen > len) flen = len;
+
 #ifdef SCR_DEBUG
   MPLog("flen: %d  gskip: %d  dskip: %d\n", flen, gskip, dskip);
 #endif

@@ -140,26 +140,17 @@ void ClearScreen(DynamicJsonDocument* jdoc) {
   cur0 = 0;
   cur1 = 0;
   backScreen = -1;
-#ifdef DEMO_SETTING
-  fftamp0  = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp0  = WAV_MAX_AMP;
-  fftamp1  = FFT_MAX_AMP-85*FFT_AMP_STEP;
-  wavamp1  = WAV_MAX_AMP;
+  amp = AMP_INIT;
   orbitamp = ORBIT_MIN_AMP;
-#else
-  fftamp0  = FFT_MIN_AMP;
-  wavamp0  = WAV_MIN_AMP;
-  fftamp1  = FFT_MIN_AMP;
-  wavamp1  = WAV_MIN_AMP;
-  orbitamp = ORBIT_MIN_AMP;
-  dbvdisp0 = FFT_DBV_INIT;
-  dbvdisp1 = FFT_DBV_INIT;
+  dbvdisp  = FFT_DBV_INIT;
+  spcamp   = SPC_MIN_AMP;
   bdBVDisplay = false;
   bLogDisplay = false;
-#endif
   plotscale0_done = false;
   plotscale1_done = false;
-  plotscalespc_done = false;
+  plotscale2_done = false;
+  plotscale3_done = false;
+  loop_counter = 0;
   memset(inpsel, 0, sizeof(uint16_t)*100);
   memset(nextScreen, -1, sizeof(int)*5);
   memset(&response, 0, sizeof(struct Response));

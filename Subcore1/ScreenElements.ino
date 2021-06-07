@@ -34,14 +34,12 @@ static void updateB0() {
   case SCR_TYPE_FFDB:
   case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
-    wavamp0 += WAV_AMP_STEP;
-    if (wavamp0 == WAV_MAX_AMP) wavamp0 = WAV_MIN_AMP;
-    fftamp0 += FFT_AMP_STEP;
-    if (fftamp0 == FFT_MAX_AMP) fftamp0 = FFT_MIN_AMP;
-    ++dbvdisp0;
-    if (dbvdisp0 == FFT_DBV_RANGE_MAX) dbvdisp0 = 0;
-    spcamp += SPC_AMP_STEP;
-    if (spcamp == SPC_MAX_AMP) spcamp = SPC_MIN_AMP;    
+    spcamp -= SPC_AMP_STEP;
+    if (spcamp < 0) spcamp = SPC_MIN_AMP;
+    --dbvdisp;
+    if (dbvdisp < 0) dbvdisp = 0;
+    amp -= AMP_STEP;
+    if (amp < AMP_INIT) amp = AMP_INIT;    
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -82,13 +80,14 @@ static void updateB1() {
   case SCR_TYPE_FTLG:
   case SCR_TYPE_FFT2:
   case SCR_TYPE_FFDB:
+  case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
-    wavamp1 += WAV_AMP_STEP;
-    if (wavamp1 == WAV_MAX_AMP) wavamp1 = WAV_MIN_AMP;
-    fftamp1 += FFT_AMP_STEP;
-    if (fftamp1 == FFT_MAX_AMP) fftamp1 = FFT_MIN_AMP;
-    ++dbvdisp1;
-    if (dbvdisp1 == FFT_DBV_RANGE_MAX) dbvdisp1 = 0;
+    spcamp += SPC_AMP_STEP;
+    if (spcamp >= SPC_MAX_AMP) spcamp = SPC_MAX_AMP;
+    ++dbvdisp;
+    if (dbvdisp >= FFT_DBV_RANGE_MAX) dbvdisp = 0;
+    amp += AMP_STEP;
+    if (amp > AMP_MAX) amp = AMP_MAX;
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -309,7 +308,14 @@ void build2WayGraph(DynamicJsonDocument* jdoc) {
 /* Building the screen for 2 graph applications */
 void buildSpectroGraph(DynamicJsonDocument* jdoc) {
   doc = jdoc;
-  tft.drawRect(SPC_BOX_SIDE, SPC_BOX_HEAD, SPC_GRAPH_WIDTH+SPC_MARGIN+1, SPC_GRAPH_HEIGHT+SPC_MARGIN+1, ILI9341_YELLOW);  
+  tft.drawRect(SPC_BOX_SIDE, SPC_BOX_HEAD, SPC_GRAPH_WIDTH+SPC_MARGIN+1, SPC_GRAPH_HEIGHT+SPC_MARGIN+1, ILI9341_YELLOW);
+  tft.drawRect(SPC_COL_SIDE, SPC_COL_HEAD, SPC_COL_WIDTH+SPC_MARGIN+1, SPC_COL_HEIGHT+SPC_MARGIN+2, ILI9341_YELLOW);
+  int n = 0;
+  for (int i = 0; i < 256; i+=2, ++n) {
+    tft.drawLine(SPC_COL_SIDE+1,             SPC_COL_HEAD+1+SPC_COL_HEIGHT-n
+               , SPC_COL_SIDE+SPC_COL_WIDTH, SPC_COL_HEAD+SPC_COL_HEIGHT-n
+               , pseudoColors[i]);
+  }
 }
 
 /* Building the screen for the orbit graph application */

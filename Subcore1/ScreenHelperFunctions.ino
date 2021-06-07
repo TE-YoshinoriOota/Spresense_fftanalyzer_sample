@@ -126,6 +126,94 @@ void putPeakFrequencyInLinear(float peakFs, float value, int head) {
 }
 
 
+void putPeakFrequencySpc(float peakFs, float value) {
+  const static int STRLEN = 6;
+  char strbuf[STRLEN] = {};
+  char tmpbuf[STRLEN] = {};
+  putText(SPC_FPEAK_SIDE, SPC_FPEAK_HEAD
+        , String("PEAK: "), ILI9341_WHITE, 1);
+
+  tft.fillRect(SPC_FPEAK_SIDE + 30
+        , SPC_FPEAK_HEAD 
+        , 40, 10, ILI9341_BLACK);
+  sprintf(strbuf, "%5d", (int)(peakFs)); 
+  putText(SPC_FPEAK_SIDE + 30
+        , SPC_FPEAK_HEAD
+        , String(strbuf), ILI9341_GREEN, 1);
+  putText(SPC_FPEAK_SIDE + 70
+        , SPC_FPEAK_HEAD
+        , "Hz", ILI9341_GREEN, 1);
+
+
+  tft.fillRect(SPC_FPEAK_SIDE + 100
+        , SPC_FPEAK_HEAD 
+        , 40, 10 , ILI9341_BLACK);
+  sprintf(strbuf, "%3.1f", value);
+  memset(tmpbuf, ' ', sizeof(char)*STRLEN);
+  int cnt = 0;
+  for (int i = 0; i < STRLEN; ++i) {
+    if (strbuf[i] >= 0x2B && strbuf[i] <= 0x7E) {
+      ++cnt;
+    }  
+  }
+  tmpbuf[STRLEN-1]='\0';
+  if (cnt > 0) {
+    for (int i = 0; i < STRLEN-1; ++i) {
+      if (strbuf[i] >= 0x2B && strbuf[i] <= 0x7E) {
+        tmpbuf[STRLEN-cnt-1] = strbuf[i];
+        --cnt;      
+      } 
+    }
+  }
+  putText(SPC_FPEAK_SIDE + 100
+        , SPC_FPEAK_HEAD
+        , String(tmpbuf), ILI9341_GREEN, 1);
+
+  putText(SPC_FPEAK_SIDE + 140 
+        , SPC_FPEAK_HEAD
+        , "mV", ILI9341_GREEN, 1);
+        
+}
+
+void putColorRange(int amp) {
+  const static int STRLEN = 4;
+  char strbuf[STRLEN] = {};
+  float fvalmax = (WAV_MAX_VOL/amp);
+
+  int ivalmax;
+  String unit;
+  if (fvalmax >= 1.0) {
+    ivalmax = (int)(fvalmax);
+    unit = "mV";
+  } else if (fvalmax < 1.0) {
+    ivalmax = (int)(fvalmax/1000);
+    unit = "uV"; 
+  }
+
+  sprintf(strbuf, "%3d", ivalmax);
+  tft.fillRect(SPC_FPEAK_SIDE + 270
+        , SPC_FPEAK_HEAD 
+        , 40, 10 , ILI9341_BLACK);
+  putText(SPC_FPEAK_SIDE + 270
+        , SPC_FPEAK_HEAD
+        , String(strbuf), ILI9341_YELLOW, 1);
+
+  putText(SPC_FPEAK_SIDE + 295
+        , SPC_FPEAK_HEAD
+        , unit, ILI9341_YELLOW, 1); 
+
+
+  putText(SPC_FPEAK_SIDE + 285
+        , SPC_COL_HEAD + SPC_COL_HEIGHT+8
+        , String("0"), ILI9341_YELLOW, 1);
+
+  putText(SPC_FPEAK_SIDE + 295 
+        , SPC_COL_HEAD + SPC_COL_HEIGHT+8
+        , unit, ILI9341_YELLOW, 1);   
+
+        
+}
+
 void putPeakFrequencyInPower(float peakFs, float value) {
   // need to implement for dBV view
 }
@@ -219,9 +307,16 @@ void putBufdBVGraph(uint16_t* frameBuf, float* graph
 
 
 void putBufSpcGraph(uint16_t* spcBuf, float* spcDataBuf
-                  , int len, int dskip, float df
+                  , int len, int gskip, int dskip, float df
                   , int side, int head
                   , int width, int height) {
+
+  int nlen = len*gskip/dskip;
+  if (nlen > height) nlen = height; // sometimes, the max freq cannot adjust to fit display because of rounding error
+
+#ifdef SCR_DEBUG
+  MPLog("nlen: %d, len: %d, gskip: %d, dskip: %d\n",nlen, len, gskip, dskip);
+#endif
 
   // need to think about memory layout to use DMA
   // current implementation is too slow!
@@ -231,11 +326,10 @@ void putBufSpcGraph(uint16_t* spcBuf, float* spcDataBuf
     }
   }
 
-  for (int i = 0; i < len; ++i) {
+  for (int i = 0; i < nlen; ++i) {
     int val = spcDataBuf[i]*255;
-    if (val < 0) val = 0;
-    else if (val > 255) val = 255;
-    int n = height-i-1; // inverse the data
+    if (val < 0) val = 0;  else if (val > 255) val = 255;
+    int n = (height-1)-i; // inverse the data
     *(spcFrameBuf + n*width + (width-1)) = pseudoColors[val];
   }
   
@@ -328,6 +422,51 @@ void plotvirticalscale(int head, int mag, bool ac) {
   }
 }
 
+
+void plotverticalscale_spc(float df, int flen, int gskip, int dskip, bool redraw) {
+  if (plotscale1_done == true && redraw == false) return;
+
+  int fmaxdisp = (int)(df*flen);
+  int memori[5];
+  memset(memori, 0, sizeof(int)*5);
+
+  int unit;
+  if (fmaxdisp <= 5000)       unit = 1000;
+  else if (fmaxdisp <= 10000) unit = 2000;
+  else if (fmaxdisp <= 20000) unit = 4000;
+  else if (fmaxdisp <= 50000) unit = 10000;
+  else                        unit = 20000;
+
+  int nlen = flen*gskip/dskip;
+  int n;
+  for (n = 0; n < 5; ++n) {
+    int plotfreq = (n+1)*unit;
+    int nheight = nlen*plotfreq/fmaxdisp;
+    MPLog("%d px, %d Hz\n", nheight, plotfreq);
+    if (nheight <= nlen) {
+      memori[n] = nheight;
+    } else break;
+  }
+
+  /* draw memori */
+  for (int i = 0; i < n; ++i) {
+    tft.drawLine(SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH
+               , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-memori[i]
+               , SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH+3
+               , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-memori[i]
+               , ILI9341_YELLOW);
+    putText(SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH +8
+          , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-memori[i]-4
+          , String((i+1)*unit/1000) + String(" kHz"), ILI9341_YELLOW, 1);
+  }
+
+  MPLog("vertical plot finished\n");
+
+  if (redraw == false)
+    plotscale1_done = true;   
+}
+
+
 /* plot virtical scale in dBV */
 void plotvirticalscale_dbv(int head, int maxdbv, int mindbv) {
 
@@ -416,8 +555,7 @@ void plottimescale(float df, int len, int head, bool redraw) {
 
 
 void plottimescale_for_spc(uint32_t duration, bool redraw) {
-  static bool plotscalespc_done = false;
-  if (plotscalespc_done == true && redraw == false) return;
+  if (plotscale0_done == true && redraw == false) return;
   float maxtime = duration*SPC_GRAPH_WIDTH;
 
   uint32_t m_sec_d = 0;
@@ -438,7 +576,7 @@ void plottimescale_for_spc(uint32_t duration, bool redraw) {
   }
   
   if (redraw == false)
-    plotscalespc_done = true;
+    plotscale0_done = true;
 }
 
 

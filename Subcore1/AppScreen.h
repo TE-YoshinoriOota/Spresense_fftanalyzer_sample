@@ -154,19 +154,15 @@
 #define SPC_GRAPH_WIDTH  (256)
 #define SPC_GRAPH_HEIGHT (128)
 #define SPC_GRAPH_SIDE    SPC_MARGIN 
-#define SPC_GRAPH_HEAD   (45 + SPC_MARGIN)
+#define SPC_GRAPH_HEAD   (45 + 15 + SPC_MARGIN)
+#define SPC_FPEAK_HEAD   (43 + SPC_MARGIN)
+#define SPC_FPEAK_SIDE    TITLE_SIDE
 #define SPC_BOX_SIDE     (SPC_GRAPH_SIDE - SPC_MARGIN)  
 #define SPC_BOX_HEAD     (SPC_GRAPH_HEAD - FFT_MARGIN) 
-#define SPC_UNIT0_SIDE    TITLE_SIDE
-#define SPC_UNIT1_SIDE    SPC_UNIT0_SIDE + 32
-#define SPC_UNIT2_SIDE    SPC_UNIT1_SIDE + 32
-#define SPC_UNIT3_SIDE    SPC_UNIT2_SIDE + 32
-#define SPC_UNIT4_SIDE    SPC_UNIT3_SIDE + 32
-#define SPC_UNIT5_SIDE    SPC_UNIT4_SIDE + 32
-#define SPC_UNIT6_SIDE    SPC_UNIT5_SIDE + 32
-#define SPC_UNIT7_SIDE    SPC_UNIT6_SIDE + 32
-#define SPC_UNIT0_HEAD    SPC_GRAPH_HEAD + FFT_BOX_HEIGHT + 2
-
+#define SPC_COL_WIDTH    (10)
+#define SPC_COL_HEIGHT   (128)
+#define SPC_COL_HEAD     (SPC_GRAPH_HEAD-SPC_MARGIN-3)
+#define SPC_COL_SIDE     (SCREEN_WIDTH-SPC_COL_WIDTH-SPC_MARGIN-3)
 
 
 /* ORBIT SCREEN CORDINATION */
@@ -218,17 +214,14 @@
 #define PEAK_TO_PEAK_VOL        (910.)
 
 /* FFT and WAV graph realted parameters */  
-#define WAV_MAX_AMP       (100)
-#define WAV_MIN_AMP       (1)
-#define WAV_AMP_STEP      (2)
-#define FFT_MAX_AMP       (100)
-#define FFT_MIN_AMP       (1)
-#define FFT_AMP_STEP      (2)
-#define FFT_DBV_RANGE_MAX (12)
-#define FFT_DBV_INIT      (0)
 #define SPC_MAX_AMP       (200)
 #define SPC_MIN_AMP       (1)
-#define SPC_AMP_STEP      (10)
+#define SPC_AMP_STEP      (2)
+#define AMP_INIT          (1)
+#define AMP_STEP          (1)
+#define AMP_MAX           (100)
+#define FFT_DBV_RANGE_MAX (12)
+#define FFT_DBV_INIT      (0)
 
 
 /* BUTTON PINS */
@@ -330,19 +323,15 @@ const static uint16_t pseudoColors[] =
 
 
 
-/* static memories: needs to be reduced */
-/*
-static uint16_t frameBuf[FRAME_WIDTH][FRAME_HEIGHT]; 
-static uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]; 
-static float    graphDataBuf[FFT_GRAPH_WIDTH];
-*/
+/* pointers to memories */
 static uint16_t* frameBuf; 
 static uint16_t* spcFrameBuf;
 static uint16_t* orbitBuf; 
-static float*    graphDataBuf;
-static float*    spcDataBuf;
+static    float* graphDataBuf;
+static    float* spcDataBuf;
 
 
+/* screen parts related parameters */
 static int8_t scrType = 0;
 static bool   scrChange = false;
 
@@ -355,25 +344,30 @@ static uint8_t  inp_num = 0;
 static int8_t   cur0 = 0;
 static int8_t   cur1 = 0;
 static uint16_t inpsel[100];
+
+/* scale related parameters */
+static int      fmaxdisp = 10000; /* Hz */
 static bool     plotscale0_done = false;
 static bool     plotscale1_done = false;
-static bool     plotscalespc_done = false;
-static int      fftamp0 = FFT_MIN_AMP;
-static int      fftamp1 = FFT_MIN_AMP;
-static int      wavamp0 = WAV_MIN_AMP;
-static int      wavamp1 = WAV_MIN_AMP;
-static int      orbitamp = ORBIT_MIN_AMP;
-static int      spcamp  = SPC_MIN_AMP;
-static bool     bLogDisplay = false;
-static bool     bdBVDisplay = false;
-static int      fmaxdisp = 10000; /* Hz */
+static bool     plotscale2_done = false;
+static bool     plotscale3_done = false;
 
-static int      dbvdisp0  = 0;
-static int      dbvdisp1  = 0;
+/* magnification parameters */
+static int      orbitamp = ORBIT_MIN_AMP;
+static int      spcamp   = SPC_MIN_AMP;
+static int      amp      = AMP_INIT;
+static int      dbvdisp   = 0;
 static int      dbvrange[FFT_DBV_RANGE_MAX][2] = 
                   {{   0, -200}, {   0, -100}, { -50, -150}, {-100, -200}
                  , {   0,  -50}, { -25,  -75}, { -50, -100}, { -75, -125}
                  , {-100, -150}, {-125, -175}, {-150, -200}, {   0, -300}};
+
+/* utility parameters */
+static int      loop_counter = 0; 
+
+/* fft view parameters */
+static bool     bLogDisplay = false;
+static bool     bdBVDisplay = false;
 
 
 
@@ -421,18 +415,17 @@ void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip
                 , int head, bool scale_update, int color = ILI9341_CYAN);
 void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
-                , bool peakdisp = true, bool clear = true, bool display = true);
+                , bool peakdisp = true, bool clr = true, bool disp = true);
 void drawLogFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
                 , int interval, float f_min_log
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
-                , bool peakdisp = true, bool clear = true, bool display = true);
+                , bool peakdisp = true, bool clr = true, bool disp = true);
 void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int dskip
                 , int interval, float f_min_log
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
-                , bool peakdisp = true, bool clear = true, bool display = true);
-
-
-
+                , bool peakdisp = true, bool clr = true, bool disp = true);
+void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip
+                , int amp, bool scale_update);
 
 /* helper functions */
 void putHorizonLine(int h, int color);
@@ -442,7 +435,7 @@ bool putText(int x, int y, String str, int color, int tsize);
 void putBufLinearGraph(uint16_t* frameBuf, float* graph
                   , float max_vol, int gskip, int x, int y, int w, int h
                   , uint16_t color, float df, int offset = 0
-                  , bool clr = true, bool draw = true);
+                  , bool clr = true, bool disp = true);
 void putBufLogGraph(uint16_t* frameBuf, float* graph
                   , float max_vol, int len, int dskip, int x, int y, int w, int h
                   , uint16_t color, float df, int interval, double f_min_log
@@ -452,7 +445,7 @@ void putBufdBVGraph(uint16_t* frameBuf, float* graph
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
 void putBufSpcGraph(uint16_t* spcBuf, float* spcDataBuf
-                  , int len, int dskip
+                  , int len, int gskip, int dskip
                   , int side, int head
                   , int width, int height);
                                     
@@ -461,8 +454,11 @@ void plotvirticalscale_dbv(int head, int maxdbv, int mindbv);
 void plottimescale(float df, int len, int head, bool redraw);
 void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
 void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);
-void plottimescale_for_spc(uint32_t duration, int head, bool redraw);
+void plotorbitscale(int mag);
+void plottimescale_for_spc(uint32_t duration, bool redraw);
+void plotverticalscale_spc(float df, int flen, int gskip, int dskip, bool redraw);
 
+/* graphic utility functions */
 void writeLineToBuf(uint16_t* fBuf, int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color);
 void writeOrBitGraphToBuf(uint16_t* orbitBuf
