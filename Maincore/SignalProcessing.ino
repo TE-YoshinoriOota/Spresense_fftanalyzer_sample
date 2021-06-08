@@ -162,7 +162,8 @@ static void signal_processing(void* arg) {
     
     /* check if the read data is zero, just rest and continue */ 
     if (read_size == 0) {
-      usleep(1); // yield the process to the main loop
+      //attension!: if you enable usleep, 192kHz 4096 will not work!!
+      //usleep(1); // yield the process to the main loop 
       continue;
     }
 
@@ -175,7 +176,8 @@ static void signal_processing(void* arg) {
       ringbuff[i].put((q15_t*)pRaw, captured_sample, g_chnm, i);
     }
     pthread_mutex_unlock(&m);  
-    usleep(1); // yield the process to main loop
+    //attension!: if you enable usleep, 192kHz 4096 will not work!!
+    //usleep(1); // yield the process to main loop
   }
   bThreadStopped = true;  
 }

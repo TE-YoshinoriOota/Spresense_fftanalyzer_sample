@@ -31,15 +31,18 @@ static void updateB0() {
   case SCR_TYPE_WFDB:
   case SCR_TYPE_FFT2:
   case SCR_TYPE_FTLG:
-  case SCR_TYPE_FFDB:
   case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
     spcamp -= SPC_AMP_STEP;
     if (spcamp < 0) spcamp = SPC_MIN_AMP;
-    --dbvdisp;
-    if (dbvdisp < 0) dbvdisp = 0;
     amp -= AMP_STEP;
     if (amp < AMP_INIT) amp = AMP_INIT;    
+    pthread_mutex_unlock(&mtx);
+    break;
+  case SCR_TYPE_FFDB:
+    pthread_mutex_lock(&mtx);
+    dbvoffset -= DBV_OFFSET_STEP;
+    if (dbvoffset <= DBV_OFFSET_MIN) dbvoffset = DBV_OFFSET_MIN;    
     pthread_mutex_unlock(&mtx);
     break;
   }
@@ -79,15 +82,18 @@ static void updateB1() {
   case SCR_TYPE_WVFT:
   case SCR_TYPE_FTLG:
   case SCR_TYPE_FFT2:
-  case SCR_TYPE_FFDB:
   case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
     spcamp += SPC_AMP_STEP;
     if (spcamp >= SPC_MAX_AMP) spcamp = SPC_MAX_AMP;
-    ++dbvdisp;
-    if (dbvdisp >= FFT_DBV_RANGE_MAX) dbvdisp = 0;
     amp += AMP_STEP;
     if (amp > AMP_MAX) amp = AMP_MAX;
+    pthread_mutex_unlock(&mtx);
+    break;
+  case SCR_TYPE_FFDB:
+    pthread_mutex_lock(&mtx);
+    dbvoffset += DBV_OFFSET_STEP;
+    if (dbvoffset <= DBV_OFFSET_INIT) dbvoffset = DBV_OFFSET_INIT;    
     pthread_mutex_unlock(&mtx);
     break;
   }

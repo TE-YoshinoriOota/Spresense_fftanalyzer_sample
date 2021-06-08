@@ -106,8 +106,8 @@ void FFTClassKai::fft_scaled_amp(float* pDst, float* pSrc) {
   arm_cmplx_mag_f32(&tmpOutBuf[2], &pDst[1], m_FFTLEN/2 - 1);
   pDst[0] = tmpOutBuf[0];
   pDst[m_FFTLEN/2] = tmpOutBuf[1];
-  arm_max_f32(pDst, m_FFTLEN, &maxValue, &index);
+  arm_max_f32(pDst, m_FFTLEN/2, &maxValue, &index);
   float scale = signal_voltage/maxValue;
-  arm_scale_f32(pDst, scale, tmpOutBuf, m_FFTLEN);
-  memcpy(pDst, tmpOutBuf, m_FFTLEN*sizeof(float));
+  arm_scale_f32(pDst, scale, tmpOutBuf, m_FFTLEN/2);
+  memcpy(pDst, tmpOutBuf, m_FFTLEN*sizeof(float)/2);
 }

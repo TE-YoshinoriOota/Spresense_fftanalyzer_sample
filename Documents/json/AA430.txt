@@ -2,7 +2,7 @@
 "id":430
 ,"title":"HIGH PASS FILTER"
 ,"type":2
-,"inp_title":"CUT OFF FREQ."
+,"inp_title":"Cut Off Frequency"
 ,"inp_unit":"Hz"
 ,"cur0":2
 ,"cur1":0

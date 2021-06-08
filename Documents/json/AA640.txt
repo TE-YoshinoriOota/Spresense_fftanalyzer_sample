@@ -1,6 +1,6 @@
 {
 "id":640
-,"title":"FILTER CHECK MONITOR"
+,"title":"D-FILTER MONITOR"
 ,"type":8
 ,"cur0":0
 ,"cur1":0
@@ -9,8 +9,8 @@
 ,"back":630
 ,"next0":650
 ,"res_label":"non"
-,"B0":"W1+"
-,"B1":" W2+"
+,"B0":"(-)"
+,"B1":" (+)"
 ,"B2":"BACK"
 ,"B3":"NEXT"
 ,"ch1":0

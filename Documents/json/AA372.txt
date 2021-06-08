@@ -1,6 +1,6 @@
 {
 "id":371
-,"title":"FFT 2WAY MONITOR"
+,"title":"FFT REALTIME MONITOR"
 ,"type":13
 ,"cur0":0
 ,"cur1":0
@@ -9,8 +9,8 @@
 ,"back":360
 ,"next0":000
 ,"res_label":"non"
-,"B0":"WAV+"
-,"B1":" FFT+"
+,"B0":"(-)"
+,"B1":" (+)"
 ,"B2":"BACK"
 ,"B3":"NEXT"
 ,"ch1":0

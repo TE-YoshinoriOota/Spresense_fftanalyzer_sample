@@ -1,6 +1,6 @@
 {
 "id":360
-,"title":"FFT X-AXIS SETTING"
+,"title":"FFT GRAPH SETTING"
 ,"type":0
 ,"item_num":3
 ,"cur0":0

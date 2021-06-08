@@ -143,7 +143,7 @@
 #define FFT_UNIT0_HEAD    FFT_GRAPH0_HEAD + FFT_BOX_HEIGHT + 2
 #define FFT_UNIT1_HEAD    FFT_GRAPH1_HEAD + FFT_BOX_HEIGHT + 2
 #define FFT_VTEXT_MARGIN  (4)
-
+#define GRAPH_UNIT_SIDE   (300)
 
 #define FRAME_WIDTH  FFT_GRAPH_HEIGHT
 #define FRAME_HEIGHT FFT_GRAPH_WIDTH
@@ -220,8 +220,23 @@
 #define AMP_INIT          (1)
 #define AMP_STEP          (1)
 #define AMP_MAX           (100)
-#define FFT_DBV_RANGE_MAX (12)
-#define FFT_DBV_INIT      (0)
+#define DBV_OFFSET_INIT   (0)
+#define DBV_OFFSET_STEP   (5)
+#define DBV_OFFSET_MIN    (-100)
+#define DBV_RANGE         (100)
+#define DBV_MAG_INIT      (1.0)
+#define DBV_MAG_STEP      (0.2) 
+#define DBV_MAG_MIN       (0.2) 
+
+
+/* UTILITY MACRO FUNCTIONS */
+/* faster math functions: see http://openaudio.blogspot.com/2017/02/faster-log10-and-pow.html for the detail */
+
+
+//powf(10.f,x) is exactly exp(log(10.0f)*x)
+#define pow10f(x) expf(2.302585092994046f*x)  
+//log10f is exactly log2(x)/log2(10.0f)
+#define log10f_fast(x)  (log2f_approx(x)*0.3010299956639812f)
 
 
 /* BUTTON PINS */
@@ -283,6 +298,8 @@ struct OrbitData {
   float vel1;
   float dis1;
 };
+
+
 
 
 /* pseudo color map for spectrogram */
@@ -347,20 +364,13 @@ static uint16_t inpsel[100];
 
 /* scale related parameters */
 static int      fmaxdisp = 10000; /* Hz */
-static bool     plotscale0_done = false;
-static bool     plotscale1_done = false;
-static bool     plotscale2_done = false;
-static bool     plotscale3_done = false;
+static bool     scale_update = false;
 
 /* magnification parameters */
-static int      orbitamp = ORBIT_MIN_AMP;
-static int      spcamp   = SPC_MIN_AMP;
-static int      amp      = AMP_INIT;
-static int      dbvdisp   = 0;
-static int      dbvrange[FFT_DBV_RANGE_MAX][2] = 
-                  {{   0, -200}, {   0, -100}, { -50, -150}, {-100, -200}
-                 , {   0,  -50}, { -25,  -75}, { -50, -100}, { -75, -125}
-                 , {-100, -150}, {-125, -175}, {-150, -200}, {   0, -300}};
+static int      orbitamp  = ORBIT_MIN_AMP;
+static int      spcamp    = SPC_MIN_AMP;
+static int      amp       = AMP_INIT;
+static int      dbvoffset = DBV_OFFSET_INIT;
 
 /* utility parameters */
 static int      loop_counter = 0; 
@@ -420,7 +430,8 @@ void drawLogFftGraph(float* pFft, int len, float df, int amp, int gskip, int dsk
                 , int interval, float f_min_log
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
                 , bool peakdisp = true, bool clr = true, bool disp = true);
-void drawDbvFftGraph(float* pFft, int len, float df, int dbvdisp, int gskip, int dskip
+void drawDbvFftGraph(float* pFft, int len, float df, int gskip, int dskip
+                , int maxdbv, int mindbv
                 , int interval, float f_min_log
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
                 , bool peakdisp = true, bool clr = true, bool disp = true);
@@ -451,17 +462,19 @@ void putBufSpcGraph(uint16_t* spcBuf, float* spcDataBuf
                                     
 void plotvirticalscale(int head, int mag, bool ac);
 void plotvirticalscale_dbv(int head, int maxdbv, int mindbv);
-void plottimescale(float df, int len, int head, bool redraw);
-void plotlinearscale(float df, int gskip, int dskip, int head, bool redraw = false);
-void plotlogscale(int interval, float df, double f_min_log, int head, bool redraw = false);
+void plottimescale(float df, int len, int head, int graphid);
+void plotlinearscale(float df, int gskip, int dskip, int head);
+void plotlogscale(int interval, float df, double f_min_log, int head);
 void plotorbitscale(int mag);
-void plottimescale_for_spc(uint32_t duration, bool redraw);
-void plotverticalscale_spc(float df, int flen, int gskip, int dskip, bool redraw);
+void plottimescale_for_spc(uint32_t duration);
+void plotverticalscale_spc(float df, int flen, int gskip, int dskip);
 
 /* graphic utility functions */
 void writeLineToBuf(uint16_t* fBuf, int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color);
 void writeOrBitGraphToBuf(uint16_t* orbitBuf
                     , int16_t x0, int16_t y0, int16_t r, uint16_t color);
+float log2f_approx(float X);
+
 
 #endif /* __APP_SCREEN_HEADER_GURAD__ */

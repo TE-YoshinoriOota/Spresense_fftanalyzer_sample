@@ -1,8 +1,8 @@
 {
 "id":450
-,"title":"FFT X-AXIS DISP"
+,"title":"FFT RANGE SETTING"
 ,"type":12
-,"inp_title":"MAXIMUM FREQ."
+,"inp_title":"Maximum Frequency"
 ,"inp_unit":"Hz"
 ,"cur0":1
 ,"cur1":0
