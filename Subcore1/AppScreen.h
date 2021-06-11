@@ -9,6 +9,7 @@
 
 // #define MP_DEBUG
 // #define SCR_DEBUG
+#define ENABLE_SAVE_BUTTON
 
 /* LCD SCREEN SIZE */
 #define SCREEN_WIDTH  (320)
@@ -185,15 +186,20 @@
 
 /* MULTICORE MESSAGE ID */
 /* 0x10 - 0x70 is for FFT applications */
-#define SID_REQ_JSONDOC  (0x01)
-#define SID_REQ_MONDATA  (0x02)
-#define SID_REQ_WAV_WAV  (0x03)
-#define SID_REQ_RAW_FIL  (0x04)
+#define SID_REQ_ESDCARD  (0x01)
+#define SID_REQ_JSONDOC  (0x02)
+#define SID_REQ_MONDATA  (0x03)
+#define SID_REQ_WAV_WAV  (0x04)
+#define SID_REQ_RAW_FIL  (0x05)
+#define SID_REQ_SAVEDAT  (0x08)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
 #define SID_REQ_ORBITDT  (0x30)
 #define SID_REQ_SPECTRO  (0x40)
 
+
+
+/* 0x08 is the special flag to save the data */
 #define APP_ID_MONDATA  SID_REQ_MONDATA
 #define APP_ID_WAV_FFT  SID_REQ_WAV_FFT
 #define APP_ID_FFT_FFT  SID_REQ_FFT_FFT
@@ -233,17 +239,23 @@
 /* faster math functions: see http://openaudio.blogspot.com/2017/02/faster-log10-and-pow.html for the detail */
 
 
-//powf(10.f,x) is exactly exp(log(10.0f)*x)
+/* powf(10.f,x) is exactly exp(log(10.0f)*x) */
 #define pow10f(x) expf(2.302585092994046f*x)  
-//log10f is exactly log2(x)/log2(10.0f)
+/* log10f is exactly log2(x)/log2(10.0f) */
 #define log10f_fast(x)  (log2f_approx(x)*0.3010299956639812f)
 
 
 /* BUTTON PINS */
+/* OPERATION BUTTONS */
 #define B3 (4)
 #define B2 (5)
 #define B1 (6)
 #define B0 (7)
+
+/* OPTION BUTTONS */
+#define SAVE_BUTTON (0)
+#define SAVE_INIT   (0)
+#define SAVE_REQUEST SID_REQ_SAVEDAT
 
 
 /* LCD SETTINGS */
@@ -378,6 +390,9 @@ static int      loop_counter = 0;
 /* fft view parameters */
 static bool     bLogDisplay = false;
 static bool     bdBVDisplay = false;
+
+/* save data flag */
+static int8_t   save_request = SAVE_INIT;
 
 
 

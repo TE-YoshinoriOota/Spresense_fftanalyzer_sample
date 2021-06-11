@@ -27,7 +27,6 @@ void loop() {
   /* Send a request to MainCore */
   if (updateScreen()) {
     /* change page */
-    //stopApplication();
     stopApplication();
     getResponse(res);
     sid = SID_REQ_JSONDOC;
@@ -37,22 +36,32 @@ void loop() {
       while(true) { 
         error_notifier(MP_ERROR); 
       }    
-    }   
+    }
+    // erase save_request for safety 
+    pthread_mutex_lock(&mtx);
+    save_request = SAVE_INIT;
+    pthread_mutex_unlock(&mtx);  
   } 
   
   appid = isAppRunning();
   
   if ((appid > 0) && isDataReceived()) {
     switch(appid) {
-    case APP_ID_MONDATA: sid = SID_REQ_MONDATA; break;
-    case APP_ID_WAV_FFT: sid = SID_REQ_WAV_FFT; break;
-    case APP_ID_FFT_FFT: sid = SID_REQ_FFT_FFT; break;
-    case APP_ID_WAV_WAV: sid = SID_REQ_WAV_WAV; break;
-    case APP_ID_RAW_FIL: sid = SID_REQ_RAW_FIL; break;
-    case APP_ID_ORBITDT: sid = SID_REQ_ORBITDT; break;
-    case APP_ID_SPECTRO: sid = SID_REQ_SPECTRO; break;
+    case APP_ID_MONDATA: sid = SID_REQ_MONDATA | save_request; break;
+    case APP_ID_WAV_FFT: sid = SID_REQ_WAV_FFT | save_request; break;
+    case APP_ID_FFT_FFT: sid = SID_REQ_FFT_FFT | save_request; break;
+    case APP_ID_WAV_WAV: sid = SID_REQ_WAV_WAV | save_request; break;
+    case APP_ID_RAW_FIL: sid = SID_REQ_RAW_FIL | save_request; break;
+    case APP_ID_ORBITDT: sid = SID_REQ_ORBITDT | save_request; break;
+    case APP_ID_SPECTRO: sid = SID_REQ_SPECTRO | save_request; break;
   }
-    
+  pthread_mutex_lock(&mtx);
+#ifdef SCR_DEBUG
+  MPLog("save_request:%d\n", save_request);
+#endif
+  save_request = SAVE_INIT;
+  pthread_mutex_unlock(&mtx);
+      
 #ifdef MP_DEBUG
     MPLog("Request data to Maincore: 0x%02x\n", sid);
 #endif
@@ -77,6 +86,13 @@ void loop() {
 #ifdef MP_DEBUG
   MPLog("sid: 0x%02x\n", sid);
 #endif
+
+  /* check whether sid is sdcard error */
+  /*     tentative implementation      */    
+  if (sid == SID_REQ_ESDCARD) {
+    buildSDCardErrorPage();
+    return;
+  }
 
   /* check if the data is json documents */
   if (sid == SID_REQ_JSONDOC) {

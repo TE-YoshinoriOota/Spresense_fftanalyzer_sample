@@ -182,6 +182,7 @@ static void signal_processing(void* arg) {
   bThreadStopped = true;  
 }
 
+
 void finish_processing() {
   
   MPLog("Stop Recording\n");
@@ -218,6 +219,51 @@ void finish_processing() {
     fft = NULL;
   }
 }
+
+void pause_processing() {
+  if (bProcessing == false) {
+    MPLog("Signal Processing already stopped\n");
+    return;
+  }
+  
+  MPLog("Pause Signal Processing\n");
+  bProcessing = false;
+  while (!bThreadStopped) {
+    usleep(1);
+  }
+  theAudio->stopRecorder(); // stop recorder to avoid FIFO overflow
+}
+
+void resume_processing() {
+  int ret;
+  if (bProcessing == true) {
+    MPLog("Signal Processing already running\n");
+    return;
+  }
+  
+  MPLog("Resume Signal Processing\n");
+  bProcessing = true;
+  theAudio->startRecorder(); 
+#ifndef SIG_PROCESSING_PTHREAD
+  ret = task_create("signal_processing", 120, 1024, signal_processing, NULL);
+#else
+  struct sched_param param;
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+  param.sched_priority = 10;
+  pthread_attr_setschedparam(&attr, &param);
+  pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+  ret = pthread_create(&sig_thread, &attr, signal_processing, NULL);
+#endif
+  if (ret < 0) {
+    MPLog("task_create failure. not enough memory?\n");
+    error_notifier(MEM_ERROR);
+  }
+  usleep(1);
+}
+
+
 
 void calc_sensor_data(struct SensorData* sdata) {
 

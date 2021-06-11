@@ -1,17 +1,16 @@
 #ifndef __APP_SYSTEM_HEADER_GUARD__
 #define __APP_SYSTEM_HEADER_GUARD__
 
-#define USE_SD_CARD
+//#define USE_SD_CARD
+#define ENABLE_SAVE_DATA
 
 #include <ArduinoJson.h>
 #include <MP.h>
 #include <Audio.h>
 
-#ifdef USE_SD_CARD
 #include <SDHCI.h>
-#else
 #include <Flash.h>
-#endif
+SDClass theSD;
 
 /* Use CMSIS library */
 #define ARM_MATH_CM4
@@ -32,14 +31,19 @@
 #define MEM_ERROR   (0x03)   /* LED0 & LED2 Blink */
 
 /* sid definitions */
-#define SID_REQ_JSONDOC  (0x01)
-#define SID_REQ_MONDATA  (0x02)
-#define SID_REQ_WAV_WAV  (0x03)
-#define SID_REQ_RAW_FIL  (0x04)
+#define SID_REQ_ESDCARD  (0x01)
+#define SID_REQ_JSONDOC  (0x02)
+#define SID_REQ_MONDATA  (0x03)
+#define SID_REQ_WAV_WAV  (0x04)
+#define SID_REQ_RAW_FIL  (0x05)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
 #define SID_REQ_ORBITDT  (0x30)
 #define SID_REQ_SPECTRO  (0x40)
+
+/* save flag */
+#define SID_MSK_SAVEDAT   (0x08)
+#define SID_UMSK_SAVEDAT  (0xF7)
 
 /* FFT WINDOW FUNCTION */
 #define FFT_WINDOW_RECTANGULAR  (0x00)
@@ -90,7 +94,7 @@ struct WavWavData {
   float* pWav;
   float* pSubWav;
   int len;
-  float df;
+  float df; 
 };
 
 struct OrbitData {
@@ -102,10 +106,6 @@ struct OrbitData {
   float dis1;
 };
 
-
-#ifdef USE_SD_CARD
-SDClass theSD;
-#endif
 
 /*　json documents */
 String dfile = "AA000.txt";
@@ -171,11 +171,24 @@ DynamicJsonDocument* updateJson(DynamicJsonDocument* doc, struct Response* res);
 void error_notifier(int n);
 void init_processing(int8_t sid, DynamicJsonDocument* sys);
 void finish_processing();
+void pause_processing();
+void resume_processing();
+
 void calc_sensor_data(struct SensorData* sdata);
 void calc_fft_data(struct FftWavData* fdata);
 void calc_fft2_data(struct FftFftData* fdata);
 void get_wav2_data(struct WavWavData* wdata);
 void calc_orbit_data(struct OrbitData* odata);
 
+/* StoringProccedData */
+#ifdef ENABLE_SAVE_DATA
+void openStorage(uint8_t sid);
+void closeStorage();
+void saveData(struct SensorData* data);
+void saveData(struct FftWavData* data);
+void saveData(struct FftFftData* data);
+void saveData(struct WavWavData* data);
+void saveData(struct OrbitData* data);
+#endif
 
 #endif /* __APP_SYSTEM_HEADER_GUARD__ */

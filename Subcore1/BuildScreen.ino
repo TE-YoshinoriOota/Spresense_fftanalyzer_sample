@@ -13,11 +13,18 @@ void hardwareSetup() {
   pinMode(B1, INPUT_PULLUP);
   pinMode(B2, INPUT_PULLUP);
   pinMode(B3, INPUT_PULLUP);
+#ifdef ENABLE_SAVE_BUTTON
+  pinMode(SAVE_BUTTON, INPUT_PULLUP);
+#endif
   attachInterrupt(digitalPinToInterrupt(B0) ,updateB0 ,RISING);   
   attachInterrupt(digitalPinToInterrupt(B1) ,updateB1 ,RISING);
   attachInterrupt(digitalPinToInterrupt(B2) ,updateB2 ,RISING);   
-  attachInterrupt(digitalPinToInterrupt(B3) ,updateB3 ,RISING); 
-   
+  attachInterrupt(digitalPinToInterrupt(B3) ,updateB3 ,RISING);
+
+#ifdef ENABLE_SAVE_BUTTON 
+  attachInterrupt(digitalPinToInterrupt(SAVE_BUTTON) ,updateSave ,RISING); 
+#endif
+
   /* LCD settings */
   tft.begin(40000000);
   tft.setRotation(3);

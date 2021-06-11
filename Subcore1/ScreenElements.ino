@@ -162,6 +162,18 @@ static void updateB3() {
   interrupts();
 }
 
+#ifdef ENABLE_SAVE_BUTTON
+/* "Save" Operation */
+static void updateSave() {
+  noInterrupts();
+  pthread_mutex_lock(&mtx);
+  MPLog("Save button pressed!\n");
+  save_request = SAVE_REQUEST;
+  pthread_mutex_unlock(&mtx);
+  interrupts();
+}
+#endif
+
 
 /* UP/DOWN operation related functions */
 /* Cursor operation for menu and page screens */
@@ -383,4 +395,11 @@ void buildNextBackConnection(DynamicJsonDocument* jdoc) {
 #endif
   }
   backScreen = (*doc)["back"];
+}
+
+
+/* Building SD card error page */
+void buildSDCardErrorPage() {
+  /* tentative implementation */
+  putText(80, 100, "Insert SD Card", ILI9341_RED, 2);
 }
