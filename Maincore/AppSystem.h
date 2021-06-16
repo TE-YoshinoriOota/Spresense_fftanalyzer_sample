@@ -1,7 +1,7 @@
 #ifndef __APP_SYSTEM_HEADER_GUARD__
 #define __APP_SYSTEM_HEADER_GUARD__
 
-//#define USE_SD_CARD
+#define USE_SD_CARD
 #define ENABLE_SAVE_DATA
 
 #include <ArduinoJson.h>
