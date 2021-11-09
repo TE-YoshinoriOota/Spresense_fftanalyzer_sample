@@ -28,7 +28,7 @@ SDClass theSD;
 #define FILE_ERROR  (0x01)   /* LED0 Blink */
 #define JSON_ERROR  (0x02)   /* LED1 Blink */
 #define MP_ERROR    (0x04)   /* LED2 Blink */
-#define MEM_ERROR   (0x03)   /* LED0 & LED2 Blink */
+#define MEM_ERROR   (0x08)   /* LED3 Blink */
 
 /* sid definitions */
 #define SID_REQ_ESDCARD  (0x01)
@@ -132,7 +132,7 @@ static IIRClassKai* lpf = NULL;
 static IIRClassKai* hpf = NULL;
 
 /* For FFT processing */
-RingBuff* ringbuff = NULL;
+RingBuff** ringbuff = NULL;
 static float* pTmp = NULL;
 static float* pFft = NULL;
 static float* pSubFft = NULL;

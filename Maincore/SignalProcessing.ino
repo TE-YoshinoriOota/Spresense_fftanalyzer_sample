@@ -30,7 +30,10 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   pWav = (float*)malloc(sizeof(float)*g_samp);
   pSubWav = (float*)malloc(sizeof(float)*g_samp);
   pTmp = (float*)malloc(sizeof(float)*g_samp);
-  ringbuff = new RingBuff[g_chnm](ringbuff_size); // keep double space
+  ringbuff = new RingBuff*[g_chnm]; // keep double space
+  for (int n = 0; n < g_chnm; ++n) {
+    ringbuff[n] = new RingBuff(ringbuff_size);
+  }
   if (pRaw == NULL || pWav == NULL || pSubWav == NULL || pTmp == NULL || ringbuff == NULL) {
     MPLog("not enough memory\n");
     while (true) {
@@ -173,7 +176,7 @@ static void signal_processing(void* arg) {
     int captured_sample = read_size/(g_chnm*sizeof(int16_t));
     pthread_mutex_lock(&m);
     for (int i = 0; i < g_chnm; i++) {
-      ringbuff[i].put((q15_t*)pRaw, captured_sample, g_chnm, i);
+      ringbuff[i]->put((q15_t*)pRaw, captured_sample, g_chnm, i);
     }
     pthread_mutex_unlock(&m);  
     //attension!: if you enable usleep, 192kHz 4096 will not work!!
@@ -195,7 +198,12 @@ void finish_processing() {
   if (pRaw != NULL) free((char*)pRaw);
   if (pWav != NULL) free((float*)pWav);  
   if (pSubWav != NULL) free((float*)pSubWav);  
-  if (ringbuff != NULL) delete[] ringbuff;
+  if (ringbuff != NULL) {
+    for (int n = 0; n < g_chnm; ++n) {
+      delete ringbuff[n];
+    }
+    delete[] ringbuff;
+  }
   if (pTmp != NULL) free((float*)pTmp);
   pRaw = NULL;
   pWav = NULL;
@@ -269,7 +277,7 @@ void calc_sensor_data(struct SensorData* sdata) {
 
   /* get the data from the ringbuffer */
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);   
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);   
   pthread_mutex_unlock(&m);  
   
   uint32_t cur_time = millis();
@@ -283,7 +291,7 @@ void calc_fft_data(struct FftWavData* fdata) {
   /* Copy data for FFT calculation */
   //uint32_t mTime = millis();
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);       
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);       
   pthread_mutex_unlock(&m); 
 
 
@@ -317,9 +325,9 @@ void calc_fft2_data(struct FftFftData* fdata) {
   /* Copy data for FFT calculation */
   uint32_t mTime = millis();
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);
   if (g_chnm > 1) {   /* fool proof */
-    ringbuff[(g_ch1-1)].get(pSubWav, g_samp);
+    ringbuff[(g_ch1-1)]->get(pSubWav, g_samp);
   } else {
     memset(pSubWav, 0, g_samp*sizeof(float));
   }
@@ -372,8 +380,8 @@ void calc_fft2_data(struct FftFftData* fdata) {
 void get_wav2_data(struct WavWavData* wdata) {
   
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);       
-  ringbuff[(g_ch1-1)].get(pSubWav, g_samp);       
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);       
+  ringbuff[(g_ch1-1)]->get(pSubWav, g_samp);       
   pthread_mutex_unlock(&m); 
 
   /* digital fitering */
@@ -407,8 +415,8 @@ void get_wav2_data(struct WavWavData* wdata) {
 
 void get_rawfil_data(struct WavWavData* wdata) {
   
-  pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);   
+  pthread_mutex_lock(&m); 
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);   
   pthread_mutex_unlock(&m); 
 
   /* digital fitering */
@@ -438,9 +446,9 @@ void calc_orbit_data(struct OrbitData* odata) {
 
   /* get the data from the ringbuffer */
   pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)].get(pWav, g_samp);
-  if (g_chnm > 1) { /* fool proof */
-    ringbuff[(g_ch1-1)].get(pSubWav, g_samp);     
+  ringbuff[(g_ch0-1)]->get(pWav, g_samp);
+  if (g_chnm > 1) { /* fool proof */ 
+    ringbuff[(g_ch1-1)]->get(pSubWav, g_samp);     
   } else {
     memset(pSubWav, 0, g_samp*sizeof(float));
   }

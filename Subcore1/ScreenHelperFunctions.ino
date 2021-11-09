@@ -265,7 +265,7 @@ void putBufdBVGraph(uint16_t* frameBuf, float* graph
   len /= dskip;
   int range = max_dbv - min_dbv;
   float value;
-  for (int n = 0; n < len-1; ++n) {
+  for (int n = 1; n < len-1; ++n) {
     value = (graph[n] - min_dbv)/range;
     int val0 = (int)(value*(FRAME_WIDTH-offset)) + offset;
     if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;

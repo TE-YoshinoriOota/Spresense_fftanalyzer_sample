@@ -96,8 +96,8 @@ void FFTClassKai::fft_scaled_amp(float* pDst, float* pSrc) {
   float signal_voltage, maxValue;
   int index;
   /* which is better, RMS or MAX? */
-  // arm_rms_f32(pSrc, m_FFTLEN, &signal_voltage); 
-  arm_max_f32(pSrc, m_FFTLEN, &signal_voltage, &index); 
+  arm_rms_f32(pSrc, m_FFTLEN, &signal_voltage); 
+  // arm_max_f32(pSrc, m_FFTLEN, &signal_voltage, &index); 
   arm_rfft_fast_f32(&S, pSrc, tmpOutBuf, 0);
   /* 
    * see the below site to get the reason for the strange arguments for arm_cmplx_mag_f32 

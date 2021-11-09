@@ -216,8 +216,8 @@
 
 
 /* PHYSICAL VALUES */
-#define WAV_MAX_VOL             (455.)
-#define PEAK_TO_PEAK_VOL        (910.)
+#define WAV_MAX_VOL             (500.)
+#define PEAK_TO_PEAK_VOL        (1000.)
 
 /* FFT and WAV graph realted parameters */  
 #define SPC_MAX_AMP       (200)
