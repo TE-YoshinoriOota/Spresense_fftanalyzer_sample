@@ -234,7 +234,7 @@ void putBufLogGraph(uint16_t* frameBuf, float* graph
 
   if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
   len /= dskip;
-  for (int n = 0; n < len; ++n) {
+  for (int n = 1; n < len; ++n) {
     int val0 = (int)(graph[n]*(FRAME_WIDTH-offset)/max_vol) + offset;
     if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
     else if (val0 < 0)       val0 = 0;
