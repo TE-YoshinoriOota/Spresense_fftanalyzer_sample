@@ -180,6 +180,7 @@
 #define ORBIT_UNIT_L_SIDE  ORBIT_GRAPH_XCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXW
 #define ORBIT_UNIT_U_HEAD  ORBIT_GRAPH_YCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXH
 #define ORBIT_UNIT_L_HEAD  ORBIT_GRAPH_YCENTER+ORBIT_GRAPH_RADIUS+ORBIT_MARGIN
+#define ORBIT_INIT_AMP       (20)
 #define ORBIT_MIN_AMP        (1)
 #define ORBIT_MAX_AMP        (100)
 #define ORBIT_AMP_STEP       (10)
@@ -222,9 +223,11 @@
 /* FFT and WAV graph realted parameters */  
 #define SPC_MAX_AMP       (200)
 #define SPC_MIN_AMP       (1)
+#define SPC_INIT_AMP      (20)
 #define SPC_AMP_STEP      (2)
-#define AMP_INIT          (1)
+#define AMP_INIT          (20)
 #define AMP_STEP          (1)
+#define AMP_MIN           (1)
 #define AMP_MAX           (100)
 #define DBV_OFFSET_INIT   (0)
 #define DBV_OFFSET_STEP   (5)
