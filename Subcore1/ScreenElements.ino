@@ -36,7 +36,7 @@ static void updateB0() {
     spcamp -= SPC_AMP_STEP;
     if (spcamp < 0) spcamp = SPC_MIN_AMP;
     amp -= AMP_STEP;
-    if (amp < AMP_INIT) amp = AMP_INIT;    
+    if (amp < AMP_MIN) amp = AMP_MIN;    
     pthread_mutex_unlock(&mtx);
     break;
   case SCR_TYPE_FFDB:
