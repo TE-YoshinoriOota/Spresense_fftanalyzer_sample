@@ -223,7 +223,7 @@
 /* FFT and WAV graph realted parameters */  
 #define SPC_MAX_AMP       (200)
 #define SPC_MIN_AMP       (1)
-#define SPC_INIT_AMP      (20)
+#define SPC_INIT_AMP      (40)
 #define SPC_AMP_STEP      (2)
 #define AMP_INIT          (20)
 #define AMP_STEP          (1)
