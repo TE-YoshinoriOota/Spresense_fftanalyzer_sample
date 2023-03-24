@@ -148,9 +148,9 @@ void ClearScreen(DynamicJsonDocument* jdoc) {
   cur1 = 0;
   backScreen = -1;
   amp        = AMP_INIT;
-  orbitamp   = ORBIT_MIN_AMP;
+  orbitamp   = ORBIT_INIT_AMP;
   dbvoffset  = DBV_OFFSET_INIT;
-  spcamp     = SPC_MIN_AMP;
+  spcamp     = SPC_INIT_AMP;
   bdBVDisplay = false;
   bLogDisplay = false;
   scale_update = true;
