@@ -67,6 +67,7 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 | B2 | D5 | BACK：前の画面へ戻る | BACK：前の画面へ戻る |
 | B3（右） | D4 | NEXT：決定して次の画面へ | NEXT：次の画面へ |
 
+<br/>
 ボタンの同時押しには、次の 2 つの機能があります。
 
 | 同時押し | 使える画面 | 機能 |
@@ -74,9 +75,10 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 | (−) と (+) | グラフ画面（REC MONITOR を除く） | 表示中のデータを CSV に保存（2-2） |
 | BACK と NEXT | すべての画面 | 画面キャプチャ（2-3） |
 
+<br/>
 同時押しのときは、それぞれのボタン単独の機能（表示倍率の変更、画面の移動）は働きません。
 
-<br/><br/>
+<br/>
 
 ### 2-2. データの保存（CSV）
 グラフ画面で (−) と (+) を同時に押すと、表示中のデータを SD カードの `CSVDATA` フォルダに CSV ファイルとして保存します。
@@ -88,6 +90,7 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 ファイル名は「種類 + 日付 2 桁 + 連番 3 桁」です（例: `wf01003.csv`）。日付は Spresense の時計の日で、時計を合わせていないときは `01` になります。同じ名前のファイルがすでにあるときは、その番号を飛ばして空いている番号を使うので、以前のファイルが上書きされることはありません。
 
 1 回の保存で、画面に応じて次の 1 〜 2 個のファイルに 1 行ずつ書き込みます。
+<br/>
 
 | 画面 | ファイル 1 | ファイル 2 |
 |---|---|---|
@@ -96,6 +99,7 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 | DUAL SIGNAL MONITOR、LISSAJOUS MONITOR | `wa`：CH1 の波形 | `wb`：CH2 の波形 |
 | FFT DUAL MONITOR | `fa`：CH1 のスペクトル | `fb`：CH2 のスペクトル |
 
+<br/>
 各行の先頭の値は、波形ではサンプリング間隔 dt [ms]、スペクトルでは周波数間隔 df [Hz] です。そのあとにデータの値がカンマ区切りで続きます。
 
 <br/><br/>
