@@ -36,9 +36,9 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 
 1. Windows は `SpreMachineScope-<版>-windows.zip`、Linux は `SpreMachineScope-<版>-linux.zip` をダウンロードして展開します。
 2. Spresense を USB でつなぎ、SD カードをパソコンに挿します。
-3. Windows は `install.bat`、Linux は `install.sh` を実行し、シリアルポートと SD カードの場所を入力します。ファームウェアの書き込みと、設定ファイルの SD カードへのコピーを行います。
+3. Windows は `install.bat`、Linux は `install.sh` を実行し、シリアルポートと SD カードの場所を入力します。ファームウェアの書き込みと、設定ファイルと DSP（16 kHz・192 kHz で使う `BIN/SRC`）の SD カードへのコピーを行います。
 
-初回だけ、ブートローダ v3.4.3 の書き込み（Arduino IDE の「ブートローダを書き込む」）が必要です。USB ドライバ、DSP（SRC）など、詳しくは zip の `README.txt` を見てください。
+初回だけ、ブートローダ v3.4.3 の書き込み（Arduino IDE の「ブートローダを書き込む」）が必要です。USB ドライバなど、詳しくは zip の `README.txt` を見てください。
 
 <br/>
 
@@ -547,9 +547,9 @@ You can install it with a zip of [Releases](https://github.com/TE-YoshinoriOota/
 
 1. Download and extract `SpreMachineScope-<version>-windows.zip` for Windows, or `SpreMachineScope-<version>-linux.zip` for Linux.
 2. Connect Spresense with USB, and insert the SD card into your PC.
-3. Run `install.bat` on Windows or `install.sh` on Linux, and enter the serial port and the SD card. It writes the firmware and copies the setting files to the SD card.
+3. Run `install.bat` on Windows or `install.sh` on Linux, and enter the serial port and the SD card. It writes the firmware and copies the setting files and the DSP (`BIN/SRC`, used at 16 kHz and 192 kHz) to the SD card.
 
-Only for the first time, the bootloader v3.4.3 must be written ("Burn Bootloader" of the Arduino IDE). See `README.txt` in the zip for the USB driver, the DSP (SRC) and other details.
+Only for the first time, the bootloader v3.4.3 must be written ("Burn Bootloader" of the Arduino IDE). See `README.txt` in the zip for the USB driver and other details.
 
 ### 1-3. Installation from the source
 1. **Install the DSP codec**: in the Arduino IDE, open "Examples" > "Audio" > "dsp_installer" > "src_installer", flash it, and select the SD card on the serial monitor to install the codec.

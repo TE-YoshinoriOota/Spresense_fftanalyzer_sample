@@ -19,12 +19,14 @@ mkdir -p "$ROOT/dist"
 for os in windows linux; do
   name=SpreMachineScope-$VER-$os
   d=$BUILD/$name
-  mkdir -p "$d/firmware" "$d/tools"
+  mkdir -p "$d/firmware" "$d/tools" "$d/dsp"
   cp "$BUILD/main/Maincore.ino.spk" "$d/firmware/Maincore.spk"
   cp "$BUILD/sub1/Subcore1.ino.spk" "$d/firmware/Subcore1.spk"
   cp -r "$ROOT/Documents/config" "$d/config"
   cp "$ROOT/installer/README.txt" "$d/"
   cp "$PKG/hardware/spresense/$CORE/COPYING" "$d/tools/LICENSE-flash_writer.txt"
+  cp "$PKG/hardware/spresense/$CORE/libraries/Audio/examples/dsp_installer/src_installer/SRC" "$d/dsp/SRC"
+  cp "$PKG/hardware/spresense/$CORE/COPYING" "$d/dsp/LICENSE-SRC.txt"
   if [ $os = windows ]; then
     cp "$TOOLS/flash_writer/windows/flash_writer.exe" "$d/tools/"
     cp "$ROOT/installer/install.bat" "$d/"

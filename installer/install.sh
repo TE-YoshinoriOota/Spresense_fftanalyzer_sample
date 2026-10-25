@@ -52,9 +52,13 @@ if [ -n "$sd" ]; then
   cp -r config "$sd/config" || exit 1
   sync
   echo "Copied config / config をコピーしました"
-  if [ ! -f "$sd/BIN/SRC" ]; then
-    echo "Note: BIN/SRC is not on the SD card. 16 kHz and 192 kHz need it (README.txt)."
-    echo "注意: SD カードに BIN/SRC がありません。16 kHz と 192 kHz で必要です（README.txt）。"
+  # the DSP for 16 kHz and 192 kHz: keep the one on the SD card
+  if [ -f "$sd/BIN/SRC" ]; then
+    echo "BIN/SRC is already on the SD card / BIN/SRC はすでにあります"
+  else
+    mkdir -p "$sd/BIN" && cp dsp/SRC "$sd/BIN/SRC" || exit 1
+    sync
+    echo "Copied BIN/SRC / BIN/SRC をコピーしました"
   fi
 fi
 echo

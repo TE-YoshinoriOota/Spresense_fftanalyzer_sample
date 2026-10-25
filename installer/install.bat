@@ -41,7 +41,18 @@ if errorlevel 1 (
   goto finish
 )
 echo Copied config.
-if not exist %SD%:\BIN\SRC echo Note: BIN\SRC is not on the SD card. 16 kHz and 192 kHz need it ^(README.txt^).
+rem the DSP for 16 kHz and 192 kHz: keep the one on the SD card
+if exist %SD%:\BIN\SRC (
+  echo BIN\SRC is already on the SD card.
+  goto finish
+)
+if not exist %SD%:\BIN mkdir %SD%:\BIN
+copy /y dsp\SRC %SD%:\BIN\SRC >nul
+if errorlevel 1 (
+  echo Failed to copy BIN\SRC.
+  goto finish
+)
+echo Copied BIN\SRC.
 
 :finish
 echo.
