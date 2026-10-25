@@ -31,7 +31,16 @@ Spresense FFT Analyzer sample をもとにしたアプリケーションです�
 
 <br/><br/>
 
-### 1-2. 書き込み手順
+### 1-2. かんたんインストール（Releases）
+Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/releases) の zip で書き込めます。
+
+1. Windows は `SpreMachineScope-<版>-windows.zip`、Linux は `SpreMachineScope-<版>-linux.zip` をダウンロードして展開します。
+2. Spresense を USB でつなぎ、SD カードをパソコンに挿します。
+3. Windows は `install.bat`、Linux は `install.sh` を実行し、シリアルポートと SD カードの場所を入力します。ファームウェアの書き込みと、設定ファイルの SD カードへのコピーを行います。
+
+初回だけ、ブートローダ v3.4.3 の書き込み（Arduino IDE の「ブートローダを書き込む」）が必要です。USB ドライバ、DSP（SRC）など、詳しくは zip の `README.txt` を見てください。
+
+### 1-3. ソースからの書き込み手順
 1. **DSP コーデックのインストール**: Arduino IDE で「スケッチ例」>「Audio」>「dsp_installer」>「src_installer」を開いて書き込み、シリアルモニタで SD カードを選んでインストールします。
 2. **ライブラリ**: [ArduinoJson（作者フォーク版）](https://github.com/TE-YoshinoriOota/ArduinoJson) と、 Spresense 向けに高速化された [Adafruit_ILI9341](https://github.com/kzhioki/Adafruit_ILI9341) と [Adafruit-GFX-Library](https://github.com/kzhioki/Adafruit-GFX-Library)（いずれも `spresense` ブランチ）を Arduino の libraries フォルダに置きます。
 3. **設定ファイルのコピー**: `Documents/config`  SD カードにまるごとコピーします。システム設定値や画面の設定値用のファイルです。
@@ -518,7 +527,16 @@ An attachment to connect vibration sensors can be used. Piezo sensors can also b
 - microSD card (for the setting files, recordings, CSV files and captures)
 - Headphones (to listen to the playback with FILE + SOUND)
 
-### 1-2. Installation
+### 1-2. Easy install (Releases)
+You can install it with a zip of [Releases](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/releases) without building it in the Arduino IDE.
+
+1. Download and extract `SpreMachineScope-<version>-windows.zip` for Windows, or `SpreMachineScope-<version>-linux.zip` for Linux.
+2. Connect Spresense with USB, and insert the SD card into your PC.
+3. Run `install.bat` on Windows or `install.sh` on Linux, and enter the serial port and the SD card. It writes the firmware and copies the setting files to the SD card.
+
+Only for the first time, the bootloader v3.4.3 must be written ("Burn Bootloader" of the Arduino IDE). See `README.txt` in the zip for the USB driver, the DSP (SRC) and other details.
+
+### 1-3. Installation from the source
 1. **Install the DSP codec**: in the Arduino IDE, open "Examples" > "Audio" > "dsp_installer" > "src_installer", flash it, and select the SD card on the serial monitor to install the codec.
 2. **Libraries**: put [ArduinoJson (the author's fork)](https://github.com/TE-YoshinoriOota/ArduinoJson), and [Adafruit_ILI9341](https://github.com/kzhioki/Adafruit_ILI9341) and [Adafruit-GFX-Library](https://github.com/kzhioki/Adafruit-GFX-Library) optimized for Spresense (the `spresense` branch of both), in the Arduino libraries folder.
 3. **Copy the setting files**: copy `Documents/config` to the SD card as a whole. It holds the files of the system settings and the settings of the screens.

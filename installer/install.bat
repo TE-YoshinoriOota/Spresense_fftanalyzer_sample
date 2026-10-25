@@ -1,0 +1,49 @@
+@echo off
+rem SpreMachineScope installer for Windows
+rem   1. writes the firmware of Maincore and Subcore1 to Spresense
+rem   2. copies the setting files to the SD card
+rem (messages are in English: cmd.exe can't show UTF-8 Japanese on every Windows)
+setlocal enabledelayedexpansion
+cd /d "%~dp0"
+
+echo === 1. Write the firmware ===
+echo Serial ports:
+powershell -NoProfile -Command "[System.IO.Ports.SerialPort]::GetPortNames()"
+set PORT=
+set /p PORT=Port of Spresense, e.g. COM3 (empty: skip): 
+if "%PORT%"=="" goto sdcard
+tools\flash_writer.exe -s -c %PORT% -d -n firmware\Maincore.spk firmware\Subcore1.spk
+if errorlevel 1 (
+  echo Failed. Check the bootloader, the USB driver and the cable ^(README.txt^).
+  goto finish
+)
+echo Done.
+
+:sdcard
+echo.
+echo === 2. Prepare the SD card ===
+set SD=
+set /p SD=Drive letter of the SD card, e.g. E (empty: skip): 
+if "%SD%"=="" goto finish
+set SD=%SD::=%
+if not exist %SD%:\ (
+  echo Drive %SD%: is not found.
+  goto finish
+)
+if exist %SD%:\config (
+  for /f %%t in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmmss"') do set TS=%%t
+  ren %SD%:\config config_backup_!TS!
+  echo The old settings are kept in %SD%:\config_backup_!TS!
+)
+xcopy /e /i /q config %SD%:\config >nul
+if errorlevel 1 (
+  echo Failed to copy config.
+  goto finish
+)
+echo Copied config.
+if not exist %SD%:\BIN\SRC echo Note: BIN\SRC is not on the SD card. 16 kHz and 192 kHz need it ^(README.txt^).
+
+:finish
+echo.
+echo Finished.
+pause
