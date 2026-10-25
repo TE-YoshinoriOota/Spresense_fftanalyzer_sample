@@ -69,6 +69,7 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 
 <br/>
 ボタンの同時押しには、次の 2 つの機能があります。
+<br/>
 
 | 同時押し | 使える画面 | 機能 |
 |---|---|---|
