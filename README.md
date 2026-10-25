@@ -166,13 +166,13 @@ SPRE MACHINE SCOPE
 | AVAILABLE CHANNELS | 1 / 2 / 3 / 4 チャンネル                       | 有効にするマイク入力の数。192 kHz では 1 / 2 チャンネルだけが表示される |
 | FFT WINDOW         | RECTANGULAR / HAMMING / HANNING / FLATTOP | FFT の窓関数                                    |
 
-<br/><br/>
+<br/>
 
 #### 4-1-2. SAMPLING RATE（サンプリングレート選択画面）
 
 ![サンプリングレート選択画面](Documents/screenshots/SCR00008.png)
 
-<br/><br/>
+<br/>
 
 #### 4-1-3. AVAILABLE CHANNELS（チャンネル選択画面）
 
@@ -180,7 +180,7 @@ SPRE MACHINE SCOPE
 
 ![チャンネル選択画面](Documents/screenshots/SCR00007.png)
 
-<br/><br/>
+<br/>
 
 ### 4-2. 信号解析の共通の設定画面
 | 設定                | 選択肢                                                                        | 備考                                            |
@@ -192,7 +192,7 @@ SPRE MACHINE SCOPE
 
 フィルタは CH1 と CH2 の両方に、同じ設定でかかります。フィルタは 2 次の IIR（Q = 0.5）で、設定した周波数での減衰は −6 dB、その先は 12 dB/oct で減衰します。サンプリングレートの半分以上の周波数は選択肢に表示されません（16 kHz では LPF / HPF とも 5k Hz まで）。
 
-<br/><br/>
+<br/>
 
 ### 4-3. SINGLE FFT MONITOR（1 チャンネルの解析）
 
@@ -200,7 +200,7 @@ SPRE MACHINE SCOPE
 
 ![ホーム画面](Documents/screenshots/SCR00010.png)
 
-<br/><br/>
+<br/>
 
 
 #### 4-3-2. チャンネル選択画面
@@ -209,7 +209,7 @@ SPRE MACHINE SCOPE
 
 ![チャンネル選択画面](Documents/screenshots/SCR00011.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-3. 解析ライン数選択画面
 
@@ -217,7 +217,7 @@ SPRE MACHINE SCOPE
 
 ![ライン数選択画面](Documents/screenshots/SCR00012.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-4. ローパスフィルタ設定画面
 
@@ -225,7 +225,7 @@ SPRE MACHINE SCOPE
 
 ![ローパスフィルタ設定画面](Documents/screenshots/SCR00013.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-5. ハイパスフィルタ設定画面
 
@@ -233,7 +233,7 @@ SPRE MACHINE SCOPE
 
 ![ハイパスフィルタ設定画面](Documents/screenshots/SCR00014.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-6. デジタルフィルタ効果確認画面
 
@@ -241,7 +241,7 @@ SPRE MACHINE SCOPE
 
 ![デジタルフィルタ効果確認画面](Documents/screenshots/SCR00016.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-7. FFT出力レンジ設定画面
 
@@ -249,7 +249,7 @@ FFT出力レンジを設定画面です。最大の出力周波数を設定し�
 
 ![FFT出力レンジ設定画面](Documents/screenshots/SCR00017.png)
 
-<br/><br/>
+<br/>
 
 #### 4-3-8. FFTグラフ選択画面
 
@@ -259,44 +259,44 @@ FFTスペクトラムグラフを選択する画面です。
 
 それぞれ次節で示すグラフになります。
 
-<br/><br/>
+<br/>
 
 #### 4-3-9. FFT REALTIME MONITOR 画面
 
 INPUT SOURCE が MIC もしくは FILE を選択している場合は、信号波形とスペクトルのみの出力になります。FILE + SOUND を選択している場合は、フィルタが適用された信号がスピーカーから出力されます。
 
-<br/><br/>
+<br/>
 
 ##### Freq Linear - mV : 周波数軸リニア、振幅 mV
 上段に波形、下段にスペクトルを表示します。(−)/(+) で表示倍率を変えます。FFTスペクトルグラフの横軸（周波数）はリニア表示になります。
 
 ![Freq Linear - mV ](Documents/screenshots/SCR00019.png)
 
-<br/><br/>
+<br/>
 
 ##### Freq Log - mV: 周波数軸対数、振幅 mV
 上段に波形、下段にスペクトルを表示します。(−)/(+) で表示倍率を変えます。FFTスペクトルグラフの横軸（周波数）は対数表示になります。
 
 ![Freq Log - mV: 周波数軸対数 ](Documents/screenshots/SCR00022.png)
 
-<br/><br/>
+<br/>
 
 ##### Freq Log - dBV: 周波数軸対数、振幅 dBV
 上段に波形、下段にスペクトルを表示します。(−)/(+) で表示倍率を変えます。dBV 表示では、グラフ上端が波形のフルスケールに合わせて 10 dB 単位で動き、下端は上端の 100 dB 下になります。
 
 ![Freq Log - dBV: 周波数軸対数、振幅 dBV](Documents/screenshots/SCR00027.png)
 
-<br/><br/>
+<br/>
 
 ### 4-4. DUAL FFT MONITOR（2 チャンネルの比較）
 
 このグラフは２つの信号を比較するときに画面になります。２つの信号の相関を見るリサージュ・グラフ（オービット）を確認することもできます。
 
-<br/><br/>
+<br/>
 
 #### 4-4-1. ホーム画面
 
-<br/><br/>
+<br/>
 
 #### 4-4-2. チャンネル選択画面
 
@@ -304,12 +304,12 @@ B0 で CH1 に使う入力、B1 で CH2 に使う入力を切り替えます。
 
 ![Freq Log - mV: 周波数軸対数 ](Documents/screenshots/SCR00028.png)
 
-<br/><br/>
+<br/>
 
 #### 4-4-3. FFT ・フィルタ設定画面
 
 FFTの各種パラメータを設定します。ここは「**SINGLE FFT MONITOR**」の設定と同じですので省略します。
-<br/><br/>
+<br/>
 
 #### 4-4-4. ２つの信号の比較画面（**DUAL SIGNAL MONITOR**）
 
@@ -317,7 +317,7 @@ FFTの各種パラメータを設定します。ここは「**SINGLE FFT MONITOR
 
 ![Freq Log - mV: 周波数軸対数 ](Documents/screenshots/SCR00030.png)
 
-<br/><br/>
+<br/>
 
 #### 4-4-5. グラフ選択画面
 
@@ -325,7 +325,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![グラフ選択画面](Documents/screenshots/SCR00032.png)
 
-<br/><br/>
+<br/>
 
 ##### Freq Linear - mV: 周波数軸リニア、振幅 mV
  上段に CH1 と CH2 のスペクトルを重ねて表示し、下段に差分（CH1 − CH2、赤）を表示します。
@@ -333,7 +333,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![Freq Linear - mV: 周波数軸リニア、振幅 mV](Documents/screenshots/SCR00033.png)
 
-<br/><br/>
+<br/>
 
 ##### Freq Log - mV : 周波数軸対数、振幅 mV
  上段に CH1 と CH2 のスペクトルを重ねて表示し、下段に差分（CH1 − CH2、赤）を表示します。
@@ -341,37 +341,37 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![Freq Log - mV : 周波数軸対数、振幅 mV](Documents/screenshots/SCR00036.png)
 
-<br/><br/>
+<br/>
 
 ##### Freq Log - dBV: 周波数軸対数、振幅 dBV
  上段に CH1 と CH2 のスペクトルを重ねて表示し、下段に差分（CH1 − CH2、赤）を表示します。dBV 表示では、(−)/(+) で表示範囲を 5 dB ずつ上下に動かします。
  
 ![Freq Log - dBV: 周波数軸対数、振幅 dBV](Documents/screenshots/SCR00040.png)
 
-<br/><br/>
+<br/>
 
 ##### **Lissajous (X-Y): リサージュ図形**
    横軸を CH1、縦軸を CH2 としてリサージュ図形を描きます。古い軌跡は残光として徐々に暗くなります。(−)/(+) で表示倍率を変え、右側にフルスケール（例: +/-25.0 mV）を表示します。同じ信号なら斜めの直線、位相がずれると楕円になります。
 
 ![Lissajous (X-Y): リサージュ図形](Documents/screenshots/SCR00043.png)
 
-<br/><br/>
+<br/>
 
 ### 4-5. SPECTROGRAM MONITOR（時間変化の表示）
 
 チャンネル・ライン数・フィルタ・表示範囲を設定したあと、スペクトルの時間変化を色の濃淡で表示します。(−)/(+) で色の感度を変えます。
 
-<br/><br/>
+<br/>
 
 #### 4-5-1. ホーム画面
 
-<br/><br/>
+<br/>
 
 #### 4-5-2. チャンネル選択・ライン選択・フィルタ設定・FFTレンジ設定
 
 これらの設定は、「**SINGLE FFT MONITOR**」の設定と同じですので省略します。
 
-<br/><br/>
+<br/>
 
 #### 4-5-3. スペクトログラム表示
 
@@ -379,19 +379,19 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![Lissajous (X-Y): リサージュ図形](Documents/screenshots/SCR00053.png)
 
-<br/><br/>
+<br/>
 
 ### 4-6. RECORDER（WAV 録音）
 
 音や振動を録音することができます。16 ビットで録音します。
 
-<br/><br/>
+<br/>
 
 #### 4-6-1. ホーム画面
 
 ![ホーム画面](Documents/screenshots/SCR00054.png)
 
-<br/><br/>
+<br/>
 
 #### 4-6-2. 録音チャンネル数設定
 
@@ -399,7 +399,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![録音チャンネル数設定](Documents/screenshots/SCR00055.png)
 
-<br/><br/>
+<br/>
 
 #### 4-6-3. 録音チャンネル設定
 
@@ -407,7 +407,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 
 ![録音チャンネル数設定](Documents/screenshots/SCR00058.png)
 
-<br/><br/>
+<br/>
 
 #### 4-6-4. 録音モニター
 
@@ -422,7 +422,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 - 録音中は FFT のライン数が 400 ライン（1024 サンプル）までに制限されます。
 - 録音中は、画面キャプチャすることができません。
 
-<br/><br/>
+<br/>
 
 
 ### 4-7. INPUT SOURCE（入力の切り替え）
@@ -432,14 +432,14 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 | FILE         | SD カードの `RECDATA/RECnnnnn.WAV` を入力として解析します。PLAYBACK FILE 画面で、最大 5 件のファイル（レート・チャンネル数・長さを表示）から選びます                                                                                                   |
 | FILE + SOUND | FILE と同様に解析しながら、ヘッドホン端子から音を再生します。PLAYBACK VOLUME 画面で音量（+12 〜 −60 dB、初期値 −30 dB）を選んでから、ファイルを選びます。0 dB より上は小さな振動音を聞くためのもので、大きな信号では音が割れたり大きすぎたりするので、ヘッドホンを耳から離して確かめてから上げてください。再生音にも LPF / HPF が適用されます |
 
-<br/><br/>
+<br/>
 
 
 #### 4-7-1. ホーム画面
 
 ![ホーム画面](Documents/screenshots/SCR00070.png)
 
-<br/><br/>
+<br/>
 
 
 #### 4-7-2. 入力選択画面
@@ -448,7 +448,7 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 
 ![ホーム画面](Documents/screenshots/SCR00071.png)
 
-<br/><br/>
+<br/>
 
 
 #### 4-7-3. プレイバックファイル選択画面
@@ -457,7 +457,7 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 
 ![プレイバックファイル選択画面](Documents/screenshots/SCR00073.png)
 
-<br/><br/>
+<br/>
 
 
 #### 4-7-4. 再生音のボリューム設定画面
@@ -466,7 +466,7 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 
 ![再生音ボリューム設定画面](Documents/screenshots/SCR00075.png)
 
-<br/><br/>
+<br/>
 ---
 
 ## 5. SD カードに作られるファイル
