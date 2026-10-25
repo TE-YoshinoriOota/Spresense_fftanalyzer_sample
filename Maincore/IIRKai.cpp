@@ -30,7 +30,7 @@ IIRClassKai::~IIRClassKai() {
 
 bool IIRClassKai::begin(filterType_t type, int cutoff, int srate, float q)
 {
-  begin(type, cutoff, srate, q, DEFAULT_FRAMSIZE, Planar);
+  return begin(type, cutoff, srate, q, DEFAULT_FRAMSIZE, Planar);
 }
 
 bool IIRClassKai::begin(filterType_t type, int cutoff, int srate, float q, int sample, format_t output)

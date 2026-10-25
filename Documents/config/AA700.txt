@@ -1,0 +1,1 @@
+{"id":700,"title":"REC CHANNELS","type":0,"item_num":2,"cur0":0,"cur1":0,"item0":"1 CHANNEL","item1":"2 CHANNELS","item0_v":1,"item1_v":2,"ch_disp":0,"back":000,"next0":710,"next1":711,"res_label":"rech","B0":"DOWN","B1":"  UP","B2":"BACK","B3":"NEXT","ch0":0,"ch1":0}

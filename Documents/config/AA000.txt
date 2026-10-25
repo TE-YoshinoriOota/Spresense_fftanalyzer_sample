@@ -1,0 +1,35 @@
+{
+"id":000
+,"title":"SPRE MACHINE SCOPE"
+,"type":0
+,"item_num":6
+,"cur0":0
+,"cur1":0
+,"item0":"CHANNEL SETUP"
+,"item1":"SINGLE FFT MONITOR"
+,"item2":"DUAL FFT MONITOR"
+,"item3":"SPECTROGRAM MONITOR "
+,"item4":"RECORDER"
+,"item5":"INPUT SOURCE"
+,"item0_v":-1
+,"item1_v":-1
+,"item2_v":-1
+,"item3_v":-1
+,"item4_v":-1
+,"item5_v":-1
+,"ch_disp":0
+,"back":0
+,"next0":110
+,"next1":300
+,"next2":400
+,"next3":600
+,"next4":700
+,"next5":800
+,"res_label":""
+,"B0":"DOWN"
+,"B1":"  UP"
+,"B2":"  "
+,"B3":"NEXT"
+,"ch0":3
+,"ch1":0
+}

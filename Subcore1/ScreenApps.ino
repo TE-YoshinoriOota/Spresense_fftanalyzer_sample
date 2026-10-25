@@ -57,7 +57,7 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
     get_log_scale_param(&interval, &f_min_log, df);
     drawLogFftGraph(pFft, flen, df, g_amp, gskip, dskip 
                   , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update);
+                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_MAGENTA);
 
   } else if (bLogDisplay == true&& bdBVDisplay == true) { 
     /* preparation for log graph */
@@ -65,14 +65,18 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
     int interval;
     float f_min_log;
     get_log_scale_param(&interval, &f_min_log, df);
+    /* the top is the full scale of the waveform in dBV (rounded up to 10 dB): */
+    /* a sine filling the waveform graph has its peak (RMS) 3 dB below the top */
+    float full_scale = WAV_MAX_VOL/g_amp/1000.0f;  /* V */
+    int maxdbv = (int)ceilf(20*log10f(full_scale)/DBV_TOP_STEP)*DBV_TOP_STEP;
     drawDbvFftGraph(pFft, flen, df, gskip, dskip
-                  , 0 ,-100
+                  , maxdbv, maxdbv - DBV_RANGE
                   , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update);
+                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_MAGENTA);
   
   } else {
 
-    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
+    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update, ILI9341_MAGENTA);
 
   }
   scale_update = false;
@@ -101,154 +105,44 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
   int maxdbv = d_offset;
   int mindbv = d_offset-DBV_RANGE;
 
-  /*********** draw upper graph ***********/
+  /*********** draw upper graph: CH1 and CH2 on the same graph ***********/
   /** check range of fmaxdisp **/
   int gskip, dskip;
   int flen = get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len, df);
+  int interval = 0;
+  float f_min_log = 0;
+  if (bLogDisplay == true) get_log_scale_param(&interval, &f_min_log, df);
 
   if (bLogDisplay == true && bdBVDisplay == false) {
-
-    /* preparation for log graph */
-    int interval;
-    float f_min_log;
-    get_log_scale_param(&interval, &f_min_log, df);   
-    drawLogFftGraph(pFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
-                  , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
+    drawLogFftGraph(pFft, flen, df, g_amp, gskip, dskip, interval, f_min_log
+                  , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN, true, true, bMonoFile);
+    if (!bMonoFile)
+    drawLogFftGraph(pSubFft, flen, df, g_amp, gskip, dskip, interval, f_min_log
+                  , FFT_GRAPH0_HEAD, false, ILI9341_GREEN, false, false, true);
 
   } else if (bLogDisplay == true && bdBVDisplay == true) {
-
-    /* preparation for log graph */
-    // I should kick out this routine before this loop
-    int interval;
-    float f_min_log;
-    get_log_scale_param(&interval, &f_min_log, df);
-    drawDbvFftGraph(pFft, flen, df, gskip, dskip
-                  , maxdbv, mindbv
-                  , interval, f_min_log
-                  , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
+    drawDbvFftGraph(pFft, flen, df, gskip, dskip, maxdbv, mindbv, interval, f_min_log
+                  , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN, true, true, bMonoFile);
+    if (!bMonoFile)
+    drawDbvFftGraph(pSubFft, flen, df, gskip, dskip, maxdbv, mindbv, interval, f_min_log
+                  , FFT_GRAPH0_HEAD, false, ILI9341_GREEN, false, false, true);
 
   } else {
-
     drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip
-                     , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN);
+                     , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN, true, true, bMonoFile);
+    if (!bMonoFile)
+    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
+                     , FFT_GRAPH0_HEAD, false, ILI9341_GREEN, false, false, true);
   }
 
-
-  /************ draw lower graph ************/
-  if (bLogDisplay == true && bdBVDisplay == false) {
-    
-    /* preparation for log graph */
-    int interval;
-    float f_min_log;
-    get_log_scale_param(&interval, &f_min_log, df);
-    drawLogFftGraph(pSubFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
-                  , true, false, false);
-
-    /* make fft diff data */
-    for (int i = 0; i < flen; ++i) {
-      pSubFft[i] = abs(pFft[i] - pSubFft[i]);
-    }
-
-    drawLogFftGraph(pSubFft, flen, df, g_amp, gskip, dskip , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
-                  , false, false, true);
-
-  } else if (bLogDisplay == true && bdBVDisplay == true) {
-
-    /* preparation for log graph */
-    // I should kick out this routine before this loop
-    int interval;
-    float f_min_log;
-    get_log_scale_param(&interval, &f_min_log, df);
-    drawDbvFftGraph(pSubFft, flen, df, gskip, dskip
-                  , maxdbv, mindbv
-                  , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
-                  , true, false, false);
-
-    /* make fft diff data */
-    for (int i = 0; i < flen; ++i) {
-      pSubFft[i] = abs(pFft[i] - pSubFft[i]);
-    }
-
-    drawDbvFftGraph(pSubFft, flen, df, gskip, dskip
-                  , maxdbv, mindbv 
-                  , interval, f_min_log
-                  , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
-                  , false, false, true);
-
-  } else {
-
-    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
-                     , FFT_GRAPH1_HEAD, scale_update, ILI9341_GREEN
-                     , true, false, false);
-
-    /* make fft diff data */
-    for (int i = 0; i < flen; ++i) {
-      pSubFft[i] = abs(pFft[i] - pSubFft[i]);
-    }
-
-    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
-                     , FFT_GRAPH1_HEAD, scale_update, ILI9341_RED
-                     , false, false, true);
-  }
+  /************ draw lower graph: the difference CH1 - CH2 ************/
+  if (!bMonoFile)
+  drawDiffFftGraph(pFft, pSubFft, flen, df, g_amp, gskip, dskip, interval, f_min_log
+                 , FFT_GRAPH1_HEAD, scale_update);
   scale_update = false;
 }
 
 
-/* application of drawing Orbit trace on the graph */
-void appDrawOrbitGraph(struct OrbitData* odata) {
-
-  int val0, val1;
-  static int last_o_amp = 0;
-
-  pthread_mutex_lock(&mtx);
-  int o_amp = orbitamp;
-  pthread_mutex_unlock(&mtx);
-
-  if (o_amp != last_o_amp) {
-    // The magnification of the screen is changed. clear the screen.
-    memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
-  }
-  
-#ifdef SCR_DEBUG
-  MPLog("Plot displacement data to buffer\n");
-#endif
-  /* no need to care about graph direction with this orbit case */
-  val0 = (int)(o_amp*odata->dis0);
-  val1 = (int)(o_amp*odata->dis1);
-
-  /* default: 1024um */
-  val0 /= (ORBIT_LIMIT_UM/ORBIT_GRAPH_RADIUS);
-  val1 /= (ORBIT_LIMIT_UM/ORBIT_GRAPH_RADIUS);
-    
-  if (val0 >= ORBIT_GRAPH_RADIUS)       val0 = ORBIT_GRAPH_RADIUS-1;
-  else if (val0 <= -ORBIT_GRAPH_RADIUS) val0 = -(ORBIT_GRAPH_RADIUS-1);
-
-  if (val1 >= ORBIT_GRAPH_RADIUS)       val1 = ORBIT_GRAPH_RADIUS-1;
-  else if (val1 <= -ORBIT_GRAPH_RADIUS) val1 = -(ORBIT_GRAPH_RADIUS-1);
-
-  val0 += ORBIT_GRAPH_RADIUS;
-  val1 += ORBIT_GRAPH_RADIUS;
-
-  //orbitBuf[val0][val1] = ILI9341_CYAN;
-  *(orbitBuf+val0*ORBIT_SIZE+val1) = ILI9341_CYAN;
-  
-#ifdef SCR_DEBUG
-  MPLog("Write OrBitGraph\n");
-#endif
-  writeOrBitGraphToBuf(orbitBuf, ORBIT_SIZE/2, ORBIT_SIZE/2
-                     , ORBIT_GRAPH_RADIUS, ILI9341_YELLOW);
-                     
-  int x = ORBIT_GRAPH_XCENTER-ORBIT_SIZE/2;
-  int y = ORBIT_GRAPH_YCENTER-ORBIT_SIZE/2;
-  tft.drawRGBBitmap(x, y, (uint16_t*)orbitBuf, ORBIT_SIZE, ORBIT_SIZE);
-
-  if (last_o_amp != o_amp) plotorbitscale(o_amp);
-  
-  last_o_amp = o_amp;
-}
 
 
 /* application of drawind Raw WAV and Filtered WAV on each graph */
@@ -258,6 +152,8 @@ void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
   static int last_w_amp0 = -1;
   static int last_w_amp1 = -1;
   static int last_amp = -1;
+
+  if (frameBuf == NULL) return;  /* the screen has no graph buffer (e.g. LISSAJOUS) */
 
   pthread_mutex_lock(&mtx);
   int g_amp  = amp;
@@ -286,9 +182,55 @@ void appDraw2WavGraph(float* pWav, float *pSubWav, int len, float df) {
     scale_update = true;
   }
   
-  drawWavGraph(pSubWav, len, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update);
+  /* CH2 is green (D-FILTER MONITOR: the filtered CH1 is blue as CH1) */
+  if (!bMonoFile) drawWavGraph(pSubWav, len, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update
+                             , (scrType == SCR_TYPE_FLTR) ? ILI9341_CYAN : ILI9341_GREEN);
   scale_update = false;
 
+}
+
+/* application of drawing the recording status on the REC MONITOR screen */
+/*   upper line: elapsed time (red: recording, yellow with "!": frames dropped) */
+/*   lower line: channels and the file name, or the error message             */
+/* force: redraw everything after REC/STOP is toggled or Maincore replied     */
+void appRecStatus(bool force) {
+  static uint32_t last_sec = 0;
+  static bool     last_drop = false;
+  static int      last_state = REC_STATE_IDLE;
+  uint32_t sec  = 0;
+  bool     drop = false;
+  int      state = REC_STATE_IDLE;
+  if (recStat != NULL) {
+    if (recStat->rate > 0) sec = recStat->frames / recStat->rate;
+    drop = (recStat->dropped > 0);
+    state = recStat->state;
+  }
+  /* Maincore changes the state while recording (e.g. AUDIO ERROR), so redraw all */
+  if (state != last_state) force = true;
+  if (!force && sec == last_sec && drop == last_drop) return;
+  last_sec  = sec;
+  last_drop = drop;
+  last_state = state;
+
+  char text[24];
+  int color = bRecording ? ILI9341_RED : ILI9341_WHITE;
+  if (drop) color = ILI9341_YELLOW;
+  sprintf(text, "%02d:%02d:%02d%s", (int)(sec/3600), (int)((sec/60)%60), (int)(sec%60), drop ? "!" : "");
+  tft.fillRect(REC_STAT_SIDE, REC_STAT0_HEAD, REC_STAT_WIDTH, 16, ILI9341_BLACK);
+  putText(REC_STAT_SIDE, REC_STAT0_HEAD, text, color, 2);
+
+  if (!force) return;
+
+  tft.fillRect(REC_STAT_SIDE, REC_STAT1_HEAD, REC_STAT_WIDTH, 8, ILI9341_BLACK);
+  if (recStat != NULL && recStat->state == REC_STATE_ERROR) {
+    putText(REC_STAT_SIDE, REC_STAT1_HEAD, recStat->message, ILI9341_RED, 1);
+  } else {
+    if (recStat != NULL) sprintf(text, "%s %s", recChText, recStat->filename);
+    else                 sprintf(text, "%s", recChText);
+    putText(REC_STAT_SIDE, REC_STAT1_HEAD, text, ILI9341_WHITE, 1);
+  }
+
+  putButtonLabel(0, bRecording ? "STOP" : "REC");
 }
 
 /*****************************************************************/
@@ -360,6 +302,57 @@ void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip
 }
 
 
+/* draw the signed difference of two spectra (CH1 - CH2) with 0 at the center */
+/* the difference is calculated in this buffer: pFft and pSubFft belong to Maincore */
+/* and are saved as CSV by the screen capture, so they must not be overwritten */
+
+void drawDiffFftGraph(float* pFft, float* pSubFft, int len, float df, int amp, int gskip, int dskip
+                    , int interval, float f_min_log, int head, bool scale_update) {
+  if (diffFftBuf == NULL) return;
+  int i, j;
+  if (len > MAX_FFT_BINS) len = MAX_FFT_BINS;
+
+  if (bLogDisplay == true && bdBVDisplay == true) {
+    /* the difference in dB: 20log10(CH1/CH2) */
+    if (scale_update) {
+      plotvirticalscale_dbv(head, DIFF_DB_RANGE, -DIFF_DB_RANGE);
+      plotlogscale(interval, df, f_min_log, head);
+    }
+    for (i = 0; i <= len; ++i) {
+      diffFftBuf[i] = 20*log10f_fast((pFft[i] + DIFF_DB_FLOOR)/(pSubFft[i] + DIFF_DB_FLOOR));
+    }
+    putBufLogGraph(frameBuf, diffFftBuf, 1.0, DIFF_DB_RANGE, len, 1
+                 , FFT_GRAPH_SIDE, head, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_RED, df, interval, f_min_log, true, true, FRAME_WIDTH/2);
+
+  } else if (bLogDisplay == true) {
+    if (scale_update) {
+      plotvirticalscale(head, amp, true);
+      plotlogscale(interval, df, f_min_log, head);
+    }
+    for (i = 0; i <= len; ++i) diffFftBuf[i] = pFft[i] - pSubFft[i];
+    putBufLogGraph(frameBuf, diffFftBuf, (float)amp*WAV_MAX_VOL, WAV_MAX_VOL, len, 1
+                 , FFT_GRAPH_SIDE, head, FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
+                 , ILI9341_RED, df, interval, f_min_log, true, true, FRAME_WIDTH/2);
+
+  } else {
+    if (scale_update) {
+      plotvirticalscale(head, amp, true);
+      plotlinearscale(df, gskip, dskip, head);
+    }
+    memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
+    for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
+      graphDataBuf[j] = (float)(amp*(pFft[i] - pSubFft[i])*WAV_MAX_VOL);
+    }
+    putBufLinearGraph(frameBuf, graphDataBuf
+                    , WAV_MAX_VOL, gskip
+                    , FFT_GRAPH_SIDE, head
+                    , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT, ILI9341_RED, df, FFT_GRAPH_HEIGHT/2
+                    , true, true);
+  }
+}
+
+
 void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
                       , int head, bool scale_update, int color, bool peakdisp, bool clr, bool disp) {
   int i, j;
@@ -409,17 +402,11 @@ void drawLogFftGraph(float* pFft, int len, float df, int amp, int gskip, int dsk
   }
 
   /* draw horizontal scale */
-  if (scale_update) plotlogscale(interval, df, f_min_log, FFT_GRAPH1_HEAD);
+  if (scale_update) plotlogscale(interval, df, f_min_log, head);
   
-  /* copy and scale the data to display buf */
-  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
-  for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
-    graphDataBuf[j] = (float)(amp*pFft[i]*WAV_MAX_VOL);
-  }
-
-  /* draw graph */
-  putBufLogGraph(frameBuf, graphDataBuf
-               , WAV_MAX_VOL, len, dskip
+  /* draw graph: every bin from df (bin 1) */
+  putBufLogGraph(frameBuf, pFft, (float)amp*WAV_MAX_VOL
+               , WAV_MAX_VOL, len, 1
                , FFT_GRAPH_SIDE, head
                , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
                , color, df, interval, f_min_log
@@ -452,15 +439,9 @@ void drawDbvFftGraph(float* pFft, int len, float df, int gskip, int dskip
   /* draw horizontal scale */ 
   if (scale_update) plotlogscale(interval, df, f_min_log, head);
 
-  /* copy and scale the data to display */
-  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
-  for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
-    graphDataBuf[j] = (float)(20*log10f_fast(pFft[i]*WAV_MAX_VOL/1000));
-  }
-       
-  /* draw graph */
-  putBufdBVGraph(frameBuf, graphDataBuf
-               , maxdbv, mindbv, len-1, dskip
+  /* draw graph: every bin from df (bin 1) */
+  putBufdBVGraph(frameBuf, pFft
+               , maxdbv, mindbv, len-1, 1
                , FFT_GRAPH_SIDE, head
                , FFT_GRAPH_WIDTH, FFT_GRAPH_HEIGHT
                , color, df, interval, f_min_log
@@ -622,4 +603,55 @@ int get_scale_param_for_spectro(int* gskip, int* dskip, int* fmaxdisp, int len, 
   *gskip = gskip_;
   *dskip = dskip_;
   return flen;
+}
+
+
+/* application of showing the result of saving the data (- and + pressed together) */
+/*   "SAVED wf24003.csv #2" on the top right of the graph for SAVE_TEXT_MS          */
+/*   (on the right of the graph on the LISSAJOUS screen: no space above the graph)   */
+static uint32_t saveTextMs = 0;
+static int saveTextX = 0;
+static int saveTextY = 0;
+static int saveTextW = 0;
+
+static void clearSaveText() {
+  if (saveTextW > 0) tft.fillRect(saveTextX, saveTextY, saveTextW, 8, ILI9341_BLACK);
+  saveTextW = 0;
+  saveTextMs = 0;
+}
+
+void appSaveStatus(struct SaveStatus* st) {
+  char text[32];
+  int color;
+  if (st->state == SAVE_STATE_OK) {
+    sprintf(text, "SAVED %s #%d", st->filename, st->rows);
+    color = ILI9341_YELLOW;
+  } else {
+    strcpy(text, "SAVE ERROR");
+    color = ILI9341_RED;
+  }
+  MPLog("%s\n", text);
+  clearSaveText();
+  saveTextW = strlen(text)*6;  /* the font of size 1 is 6 dots wide */
+  if (scrType == SCR_TYPE_LSJU) {
+    saveTextX = LSJ_TEXT_SIDE;
+    saveTextY = LSJ_HEAD + 100;
+  } else {
+    saveTextX = FFT_GRAPH_SIDE + FFT_GRAPH_WIDTH - saveTextW;
+    saveTextY = (scrType == SCR_TYPE_SPCT) ? SPC_FPEAK_HEAD - 8 : FFT_GRAPH0_HEAD - 9;
+  }
+  putText(saveTextX, saveTextY, text, color, 1);
+  saveTextMs = millis();
+  if (saveTextMs == 0) saveTextMs = 1;
+}
+
+/* called in the main loop */
+void appSaveStatusTimeout() {
+  if (saveTextMs != 0 && millis() - saveTextMs >= SAVE_TEXT_MS) clearSaveText();
+}
+
+/* the page is cleared: do not erase the area on the next page */
+void appForgetSaveStatus() {
+  saveTextW = 0;
+  saveTextMs = 0;
 }

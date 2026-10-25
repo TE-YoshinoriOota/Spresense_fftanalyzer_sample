@@ -42,6 +42,13 @@ void setup() {
   
 
 
+  /* the setting files are in the config folder: move them there if they are on the root */
+  cfg_migrate();
+#if defined(USE_SD_CARD) || defined(ENABLE_SAVE_DATA)
+  /* the recordings, the CSV files and the captures are in their folders */
+  data_migrate();
+#endif
+
 #ifdef SPECIFY_START_PAGE
   struct Response res;
   memset(&res, 0, sizeof(struct Response));
@@ -83,6 +90,9 @@ void loop() {
   if (appid == SID_REQ_JSONDOC) {
   /* request to change page from Subcore */
 
+    /* finish the WAV file before stopping the capture thread */
+    rec_stop(&recStatus);
+
     /* stop the signal processing */
     bProcessing = false;
     MPLog("Stop Thread\n");
@@ -100,11 +110,15 @@ void loop() {
       bSignalProcessingStarted = false;
     }
     
+    MPLog("Response: %.4s value %d cur %d,%d next %d\n", res->label, res->value, res->cur0, res->cur1, res->next_id);
+
     /* update system properties */
     updateSysprop(sid, sjson, res);
 
     /* get the new page resources and update the json document */
     djson = updateJson(djson, res);
+    patchPage(djson, sjson);
+    patchSource(djson, sjson);
     int ch = (*sjson)["ch"];
     int ch0 = ch & 0x00ff;
     int ch1 = ch >> 8;
@@ -120,15 +134,50 @@ void loop() {
       }    
     }
    
-    usleep(1); // yield 
+    usleep(1); // yield
     return;
-  } 
-  
+  }
+
+  /* a strip of the screen capture: it works on every page, so handle it before init_processing() */
+  if (appid == SID_REQ_SCRCAP) {
+    cap_strip((struct CapStrip*)res, &capStatus);
+    ret = MP.Send(SID_REQ_SCRCAP, &capStatus, SUBCORE);
+    if (ret < 0) {
+      MPLog("MP.Send error: %d\n", ret);
+      while(true) {
+        error_notifier(MP_ERROR);
+      }
+    }
+    return;
+  }
+
+  /* request to start/stop recording from the REC MONITOR screen */
+  /* handle it before init_processing() so that g_sid keeps the FFT application id */
+  if (appid == SID_REQ_RECSTRT || appid == SID_REQ_RECSTOP) {
+    if (appid == SID_REQ_RECSTRT) rec_start(&recStatus);
+    else                          rec_stop(&recStatus);
+
+    /* Subcore reads the status through this pointer while recording */
+    ret = MP.Send((int8_t)appid, &recStatus, SUBCORE);
+    if (ret < 0) {
+      MPLog("MP.Send error: %d\n", ret);
+      while(true) {
+        error_notifier(MP_ERROR);
+      }
+    }
+    usleep(1);
+    return;
+  }
+
   /* need signal processing, starts the sub process */
   /* request to launch the process, if it not started */
   if (bProcessing == false) {
     MPLog("init_processing\n");
     readSysprop(sid, sjson);     
+    if ((*djson)["type"] == PAGE_TYPE_RECM && g_samp > REC_MAX_SAMP) {
+      MPLog("REC MONITOR: samp %d -> %d\n", g_samp, REC_MAX_SAMP);
+      g_samp = REC_MAX_SAMP;
+    }
     bProcessing = true;
 #ifdef ENABLE_SAVE_DATA
     openStorage(appid);
@@ -181,11 +230,13 @@ void loop() {
     calc_fft_data(&fftWavData);
 
 
-#ifdef ENABLE_SAVE_DATA    
-    if (sflag) { 
+#ifdef ENABLE_SAVE_DATA
+    /* pause_processing() breaks the recording, so no CSV while recording */
+    if (sflag && !rec_is_active()) {
       pause_processing();
       saveData(&fftWavData);
       resume_processing();
+      sendSaveStatus();
     }    
 #endif  
 
@@ -211,6 +262,15 @@ void loop() {
 
     calc_fft2_data(&fft2Data);
 
+#ifdef ENABLE_SAVE_DATA     
+    if (sflag) { 
+      pause_processing();
+      saveData(&fft2Data);
+      resume_processing();
+      sendSaveStatus();
+    }
+#endif    
+
     /* send the wan and fft data to update the graph on LCD display */     
     ret = MP.Send((int8_t)appid, &fft2Data, SUBCORE);
     if (ret < 0) {
@@ -219,14 +279,6 @@ void loop() {
         error_notifier(MP_ERROR); 
       }    
     }
-    
-#ifdef ENABLE_SAVE_DATA     
-    if (sflag) { 
-      pause_processing();
-      saveData(&fft2Data);
-      resume_processing();
-    }
-#endif    
     usleep(1);
     return;        
   } 
@@ -246,6 +298,7 @@ void loop() {
       pause_processing();
       saveData(&wav2Data);
       resume_processing();
+      sendSaveStatus();
     }
 #endif
  
@@ -263,35 +316,6 @@ void loop() {
   } 
 
 
-  /* request calculate double wav data */   
-  if (appid == SID_REQ_ORBITDT) {
-
-#ifdef MP_DEBUG
-    MPLog("Collecting filtered wav data\n");
-#endif
-
-    calc_orbit_data(&orbitData);
-    
-#ifdef ENABLE_SAVE_DATA    
-    if (sflag) { 
-      pause_processing();
-      saveData(&orbitData);
-      resume_processing();
-    }
-#endif
-
-    /* send the wan and fft data to update the graph on LCD display */     
-    ret = MP.Send((int8_t)appid, &orbitData, SUBCORE);
-    if (ret < 0) {
-      MPLog("MP.Send error: %d\n", ret);
-      while(true) { 
-        error_notifier(MP_ERROR); 
-      }    
-    }
-    
-    usleep(1);
-    return;      
-  }
   
   
   /* request calculate double wav data */   
@@ -310,6 +334,7 @@ void loop() {
       pause_processing();
       saveData(&wav2Data);
       resume_processing();
+      sendSaveStatus();
     }
 #endif
 

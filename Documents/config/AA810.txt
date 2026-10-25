@@ -1,0 +1,1 @@
+{"id":810,"title":"PLAYBACK FILE","type":1,"item_num":1,"cur0":0,"cur1":0,"item0":"NO FILE","item0_v":0,"ch_disp":0,"back":800,"next0":000,"res_label":"pfil","B0":"DOWN","B1":"  UP","B2":"BACK","B3":"NEXT","ch0":0,"ch1":0}

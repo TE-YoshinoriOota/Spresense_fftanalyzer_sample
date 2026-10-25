@@ -1,0 +1,1 @@
+{"id":820,"title":"PLAYBACK VOLUME","type":2,"inp_title":"VOLUME","inp_unit":"dB","cur0":3,"cur1":0,"inp_num":10,"input":[-60,-50,-40,-30,-20,-12,-6,0,6,12],"ch_disp":0,"ch0":0,"ch1":0,"back":800,"next0":810,"res_label":"pvol","B0":"DOWN","B1":"  UP","B2":"BACK","B3":"NEXT"}

@@ -1,0 +1,1 @@
+{"id":800,"title":"INPUT SOURCE","type":0,"item_num":3,"cur0":0,"cur1":0,"item0":"MIC","item1":"FILE","item2":"FILE + SOUND","item0_v":0,"item1_v":1,"item2_v":2,"ch_disp":0,"back":000,"next0":000,"next1":810,"next2":820,"res_label":"src","B0":"DOWN","B1":"  UP","B2":"BACK","B3":"NEXT","ch0":0,"ch1":0}

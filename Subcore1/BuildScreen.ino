@@ -38,6 +38,10 @@ void BuildScreen(DynamicJsonDocument *doc) {
   cur_scrType = (*doc)["type"];
   MPLog("scr_type: %d\n", cur_scrType);
   ClearScreen(doc);
+  srcState  = (*doc)["src"] | SRC_MIC;
+  bMonoFile = ((*doc)["mono"] | 0) != 0;
+  /* D-FILTER MONITOR shows CH1 and the filtered CH1: CH2 is not used */
+  if (cur_scrType == SCR_TYPE_FLTR) bMonoFile = false;
   buildTitle(doc);
   buildAppSign(doc);
   switch (cur_scrType) {
@@ -88,10 +92,10 @@ void BuildScreen(DynamicJsonDocument *doc) {
     build2WayGraph(doc);
     startApplication(APP_ID_FFT_FFT);
     break;
-  case SCR_TYPE_ORBT:
-    MPLog("Building Orbit Screen\n");
-    buildSpace(doc);
-    startApplication(APP_ID_ORBITDT);
+  case SCR_TYPE_LSJU:
+    MPLog("Building Lissajous Screen\n");
+    buildLissajous(doc);
+    startApplication(APP_ID_LISSAJ);
     break;
   case SCR_TYPE_FLTR:
     MPLog("Building RAW-FIL Screen\n");
@@ -122,8 +126,16 @@ void BuildScreen(DynamicJsonDocument *doc) {
     buildSpectroGraph(doc);
     startApplication(APP_ID_SPECTRO);
     break;
-    
+  case SCR_TYPE_RECM:
+    MPLog("Building REC Monitor Screen\n");
+    bLogDisplay = false;
+    amp = REC_AMP_INIT;
+    buildRecMonitor(doc);
+    startApplication(APP_ID_WAV_FFT);
+    break;
+
   }
+  restoreGraphAmp(doc);
   buildButton(doc);
   buildNextBackConnection(doc);
 }
@@ -148,19 +160,23 @@ void ClearScreen(DynamicJsonDocument* jdoc) {
   cur1 = 0;
   backScreen = -1;
   amp        = AMP_INIT;
-  orbitamp   = ORBIT_INIT_AMP;
   dbvoffset  = DBV_OFFSET_INIT;
   spcamp     = SPC_INIT_AMP;
   bdBVDisplay = false;
   bLogDisplay = false;
   scale_update = true;
   loop_counter = 0;
-  memset(inpsel, 0, sizeof(uint16_t)*100);
+  bRecording = false; /* Maincore stops recording when the page changes */
+  rec_toggle_request = false;
+  recStat = NULL;
+  capture_request = false; /* D0 may be detected at boot, and the old screen is gone */
+  memset(inpsel, 0, sizeof(inpsel));
   memset(nextScreen, -1, sizeof(int)*5);
   memset(&response, 0, sizeof(struct Response));
   memcpy(response.label, "non", sizeof(char)*3);
   
   freeScreenMemories();
+  appForgetSaveStatus();
 
   tft.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, ILI9341_BLACK); 
 }
@@ -180,19 +196,24 @@ void startApplication(int appid) {
   switch (appid) {
   case APP_ID_MONDATA:
     break;
-  case APP_ID_WAV_FFT:
   case APP_ID_FFT_FFT:
+    diffFftBuf = (float*)malloc(sizeof(float)*(MAX_FFT_BINS+1));
+    /* fall through */
+  case APP_ID_WAV_FFT:
   case APP_ID_WAV_WAV:
   case APP_ID_RAW_FIL:
     signalScreenMemoryAllocation(); 
     break;
-  case APP_ID_ORBITDT:
-    orbitScreenMemoryAllocation();
+  case APP_ID_LISSAJ:
+    lissajousScreenMemoryAllocation();
     break;
   case APP_ID_SPECTRO:
     spectroScreenMemoryAllocation();
     break;
   }
+  /* the heap of Subcore1 is the rest of the 128KB blocks after the program */
+  struct mallinfo mi = mallinfo();
+  MPLog("heap free %d (largest %d)\n", mi.fordblks, mi.mxordblk);
 }
 
 int isAppRunning() {
@@ -215,6 +236,17 @@ void requestedData() {
 
 bool receivedData() {
   bDataReceived = true;
+  return true; /* without return, the code ran into the next data and caused a hard fault */
+}
+
+/* get and clear the REC/STOP request set by B0 on the REC MONITOR screen */
+/* called on every loop, so block the interrupt instead of locking the mutex */
+bool takeRecToggleRequest() {
+  noInterrupts();
+  bool req = rec_toggle_request;
+  rec_toggle_request = false;
+  interrupts();
+  return req;
 }
 
 
@@ -225,6 +257,38 @@ void getResponse(struct Response *res) {
   pthread_mutex_lock(&m);
   memcpy(res, &response, sizeof(response));
   pthread_mutex_unlock(&m);
+  /* keep the magnification of the graph in the page file */
+  res->has_amp = 1;
+  pthread_mutex_lock(&mtx);
+  switch (scrType) {
+  case SCR_TYPE_SPCT: res->amp = spcamp;    break;
+  case SCR_TYPE_FFDB: res->amp = dbvoffset; break;
+  case SCR_TYPE_WVFT: case SCR_TYPE_WFLG: case SCR_TYPE_FFT2: case SCR_TYPE_FTLG:
+  case SCR_TYPE_FLTR: case SCR_TYPE_WVWV: case SCR_TYPE_WFDB: case SCR_TYPE_RECM:
+  case SCR_TYPE_LSJU:
+    res->amp = amp;
+    break;
+  default:
+    res->has_amp = 0;
+    res->amp = 0;
+    break;
+  }
+  pthread_mutex_unlock(&mtx);
+}
+
+/* set the magnification saved in the page file, called after the initial value is set */
+void restoreGraphAmp(DynamicJsonDocument* doc) {
+  if (!doc->containsKey("amp")) return;
+  int v = (*doc)["amp"];
+  switch (cur_scrType) {
+  case SCR_TYPE_SPCT: spcamp    = v; break;
+  case SCR_TYPE_FFDB: dbvoffset = v; break;
+  case SCR_TYPE_WVFT: case SCR_TYPE_WFLG: case SCR_TYPE_FFT2: case SCR_TYPE_FTLG:
+  case SCR_TYPE_FLTR: case SCR_TYPE_WVWV: case SCR_TYPE_WFDB: case SCR_TYPE_RECM:
+  case SCR_TYPE_LSJU:
+    amp = v;
+    break;
+  }
 }
 
 
@@ -263,9 +327,10 @@ void signalScreenMemoryAllocation() {
   memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);  
 }
 
-void orbitScreenMemoryAllocation() {
-  orbitBuf = (uint16_t*)malloc(sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
-  memset(frameBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
+void lissajousScreenMemoryAllocation() {
+  lissBuf = (uint8_t*)malloc(LSJ_SIZE*LSJ_SIZE);
+  lissStrip = (uint16_t*)malloc(sizeof(uint16_t)*LSJ_SIZE*LSJ_STRIP);
+  if (lissBuf != NULL) memset(lissBuf, 0, LSJ_SIZE*LSJ_SIZE);
 }
 
 void spectroScreenMemoryAllocation() {
@@ -276,6 +341,9 @@ void spectroScreenMemoryAllocation() {
 }
 
 void freeScreenMemories() {
+  if (diffFftBuf != NULL) {
+    free(diffFftBuf); diffFftBuf = NULL;
+  }
   if (frameBuf != '\0') {
     memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
     free(frameBuf); frameBuf = '\0';
@@ -292,9 +360,10 @@ void freeScreenMemories() {
     memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
     free(spcDataBuf); spcDataBuf = '\0';
   }
-  if (orbitBuf != '\0') {
-    memset(orbitBuf, 0, sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
-    orbitBuf = (uint16_t*)malloc(sizeof(uint16_t)*ORBIT_SIZE*ORBIT_SIZE);
-    free(orbitBuf); orbitBuf = '\0';
+  if (lissBuf != NULL) {
+    free(lissBuf); lissBuf = NULL;
+  }
+  if (lissStrip != NULL) {
+    free(lissStrip); lissStrip = NULL;
   }
 }

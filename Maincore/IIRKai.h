@@ -76,6 +76,8 @@ public:
   bool begin(filterType_t type, int cutoff, int srate, float q, int sample, format_t output);
   int  get(float* pDst, float* pSrc, int sample);
   void end();
+  /* b0, b1, b2, a1, a2 for arm_biquad_cascade_df2T_f32 (the sound uses them) */
+  const float32_t* coef() const { return m_coef; }
 
 private:
   int m_framesize;

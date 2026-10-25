@@ -5,13 +5,95 @@
 DynamicJsonDocument* doc;
 
 
+/* the magnification of the graphs:
+ * steps by 'step' from 'min' up to 'lmax', then by highAmpSteps up to 1.0 mV full scale */
+static int ampUp(int a, int step, int lmax) {
+  if (a < lmax) return (a + step > lmax) ? lmax : a + step;
+  const int steps = sizeof(highAmpSteps)/sizeof(highAmpSteps[0]);
+  for (int i = 0; i < steps; ++i) {
+    if (highAmpSteps[i] > a) return highAmpSteps[i];
+  }
+  return highAmpSteps[steps-1];
+}
+
+static int ampDown(int a, int step, int min, int lmax) {
+  if (a <= lmax) return (a - step < min) ? min : a - step;
+  const int steps = sizeof(highAmpSteps)/sizeof(highAmpSteps[0]);
+  for (int i = steps-1; i >= 0; --i) {
+    if (highAmpSteps[i] < a) return (highAmpSteps[i] > lmax) ? highAmpSteps[i] : lmax;
+  }
+  return lmax;
+}
+
+
+/* the cursor saved in the page file: 0 if it is out of the items
+ * (a cursor out of the items selects a wrong next page, e.g. AA020.txt) */
+static int validCursor(int cur, int num) {
+  return (cur < 0 || cur >= num) ? 0 : cur;
+}
+
+
+/* graph screens where B0 and B1 are - and +: pressing them together saves the data */
+static bool isSaveScreen() {
+  switch (scrType) {
+  case SCR_TYPE_WVFT:
+  case SCR_TYPE_FFT2:
+  case SCR_TYPE_FLTR:
+  case SCR_TYPE_WVWV:
+  case SCR_TYPE_WFLG:
+  case SCR_TYPE_FTLG:
+  case SCR_TYPE_WFDB:
+  case SCR_TYPE_FFDB:
+  case SCR_TYPE_SPCT:
+  case SCR_TYPE_LSJU:
+    return true;
+  }
+  return false;
+}
+
+/* - and + pressed together requests saving the data instead of changing the magnification.
+ * - and + work on releasing, so the other button is checked at that time (as BACK + NEXT).
+ * returns true if the release belongs to the combination (do not change the magnification) */
+static bool releaseSaveCombo(int other) {
+  if (!isSaveScreen()) return false;
+  if (bSaveComboPressed) {
+    if (digitalRead(B0) == HIGH && digitalRead(B1) == HIGH) {
+      bSaveComboPressed = false;
+      saveComboEndMs = millis();
+    }
+    return true;
+  }
+  if (millis() - saveComboEndMs < COMBO_GUARD_MS) return true;  /* chattering */
+  if (digitalRead(other) == LOW) {
+    bSaveComboPressed = true;
+    save_request = SAVE_REQUEST;
+    return true;
+  }
+  return false;
+}
+
+/* called in the main loop: both buttons held down */
+void checkSaveCombo() {
+  if (bSaveComboPressed || doc == NULL || !isSaveScreen()) return;
+  if (digitalRead(B0) == LOW && digitalRead(B1) == LOW) {
+    noInterrupts();
+    bSaveComboPressed = true;
+    save_request = SAVE_REQUEST;
+    interrupts();
+  }
+}
+
+
 /* "DOWN" Operation */
 static void updateB0() {
+  /* no page yet: the edge of the pull-up when attached comes before the first page */
+  if (bCapturing || doc == NULL) return;
+  if (releaseSaveCombo(B1)) return;
   noInterrupts();
   switch (scrType) {
   case SCR_TYPE_PAGE: 
   case SCR_TYPE_MENU:
-    if (++cur0 == item0_num) cur0 = (item0_num - 1);
+    if (++cur0 >= item0_num) cur0 = (item0_num - 1);
     curOperation(cur0);
     break;
   case SCR_TYPE_INPT:  
@@ -20,11 +102,11 @@ static void updateB0() {
     inpOperation(cur0);
     break;
   case SCR_TYPE_DMNU:
-    if (++cur0 == item0_num) cur0 = 0;
+    if (++cur0 >= item0_num) cur0 = 0;
     curOperation(cur0, cur1);
     break; 
   case SCR_TYPE_WVFT:
-  case SCR_TYPE_ORBT:
+  case SCR_TYPE_LSJU:
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
   case SCR_TYPE_WFLG:
@@ -33,17 +115,20 @@ static void updateB0() {
   case SCR_TYPE_FTLG:
   case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
-    spcamp -= SPC_AMP_STEP;
-    if (spcamp < 0) spcamp = SPC_MIN_AMP;
-    amp -= AMP_STEP;
-    if (amp < AMP_MIN) amp = AMP_MIN;    
+    spcamp = ampDown(spcamp, SPC_AMP_STEP, SPC_MIN_AMP, SPC_MAX_AMP);
+    amp = ampDown(amp, AMP_STEP, AMP_MIN, AMP_MAX);
     pthread_mutex_unlock(&mtx);
     break;
   case SCR_TYPE_FFDB:
     pthread_mutex_lock(&mtx);
     dbvoffset -= DBV_OFFSET_STEP;
-    if (dbvoffset <= DBV_OFFSET_MIN) dbvoffset = DBV_OFFSET_MIN;    
+    if (dbvoffset <= DBV_OFFSET_MIN) dbvoffset = DBV_OFFSET_MIN;
     pthread_mutex_unlock(&mtx);
+    break;
+  case SCR_TYPE_RECM:
+    /* REC/STOP: the main loop handles this request */
+    /* no mutex here: blocking on a mutex held by the main loop hangs the interrupt */
+    rec_toggle_request = true;
     break;
   }
   interrupts();
@@ -52,6 +137,9 @@ static void updateB0() {
 
 /* "UP" Operation */
 static void updateB1() {
+  /* no page yet: the edge of the pull-up when attached comes before the first page */
+  if (bCapturing || doc == NULL) return;
+  if (releaseSaveCombo(B0)) return;
   noInterrupts();
   switch (scrType) {
   case SCR_TYPE_PAGE: 
@@ -61,20 +149,14 @@ static void updateB1() {
     break;
   case SCR_TYPE_INPT:  
   case SCR_TYPE_SCLE:
-    if (++cur0 == inp_num) cur0 = (inp_num-1);
+    if (++cur0 >= inp_num) cur0 = (inp_num-1);
     inpOperation(cur0);  
     break;
   case SCR_TYPE_DMNU:
-    if (++cur1 == item1_num) cur1 = 0;
+    if (++cur1 >= item1_num) cur1 = 0;
     curOperation(cur0, cur1);
     break;   
-  case SCR_TYPE_ORBT:
-    pthread_mutex_lock(&mtx);
-    if (orbitamp == ORBIT_MAX_AMP) orbitamp = ORBIT_MIN_AMP;
-    orbitamp += ORBIT_AMP_STEP;
-    pthread_mutex_unlock(&mtx);
-    break;
-
+  case SCR_TYPE_LSJU:
   case SCR_TYPE_FLTR:
   case SCR_TYPE_WVWV:
   case SCR_TYPE_WFLG:
@@ -84,25 +166,70 @@ static void updateB1() {
   case SCR_TYPE_FFT2:
   case SCR_TYPE_SPCT:
     pthread_mutex_lock(&mtx);
-    spcamp += SPC_AMP_STEP;
-    if (spcamp >= SPC_MAX_AMP) spcamp = SPC_MAX_AMP;
-    amp += AMP_STEP;
-    if (amp > AMP_MAX) amp = AMP_MAX;
+    spcamp = ampUp(spcamp, SPC_AMP_STEP, SPC_MAX_AMP);
+    amp = ampUp(amp, AMP_STEP, AMP_MAX);
     pthread_mutex_unlock(&mtx);
     break;
   case SCR_TYPE_FFDB:
     pthread_mutex_lock(&mtx);
     dbvoffset += DBV_OFFSET_STEP;
-    if (dbvoffset <= DBV_OFFSET_INIT) dbvoffset = DBV_OFFSET_INIT;    
+    if (dbvoffset <= DBV_OFFSET_INIT) dbvoffset = DBV_OFFSET_INIT;
     pthread_mutex_unlock(&mtx);
     break;
+  case SCR_TYPE_RECM: {
+    /* cycle the magnification: 1 -> 2 -> 5 -> ... -> 500 -> 1 */
+    /* no mutex here for the same reason as B0 (a single int write is atomic) */
+    const int steps = sizeof(recAmpSteps)/sizeof(recAmpSteps[0]);
+    int next = recAmpSteps[0];
+    for (int i = 0; i < steps; ++i) {
+      if (recAmpSteps[i] > amp) { next = recAmpSteps[i]; break; }
+    }
+    amp = next;
+    break;
+  }
   }
   interrupts();
 }
 
 
+/* BACK + NEXT pressed together requests the screen capture instead of changing the page.
+ * BACK and NEXT work on releasing, so the other button is checked at that time.
+ * checkCaptureCombo() in the main loop also finds both buttons held down.
+ * returns true if the release belongs to the combination (do not change the page) */
+static bool releaseCaptureCombo(int other) {
+  if (bComboPressed) {
+    if (digitalRead(B2) == HIGH && digitalRead(B3) == HIGH) {
+      bComboPressed = false;
+      comboEndMs = millis();
+    }
+    return true;
+  }
+  if (millis() - comboEndMs < COMBO_GUARD_MS) return true;  /* chattering */
+  if (digitalRead(other) == LOW) {
+    bComboPressed = true;
+    if (!bCapturing) capture_request = true;
+    return true;
+  }
+  return false;
+}
+
+/* called in the main loop */
+void checkCaptureCombo() {
+  if (bComboPressed) return;
+  if (digitalRead(B2) == LOW && digitalRead(B3) == LOW) {
+    noInterrupts();
+    bComboPressed = true;
+    capture_request = true;
+    interrupts();
+  }
+}
+
+
 /* "BACK" Operation */
 static void updateB2() {
+  if (releaseCaptureCombo(B3)) return;
+  /* no page yet: the edge of the pull-up when attached comes before the first page */
+  if (bCapturing || doc == NULL) return;
   if (backScreen < 0) return;
   noInterrupts();
   scrChange = true;
@@ -132,6 +259,9 @@ static void updateB2() {
 
 /* "NEXT" Operation */
 static void updateB3() {
+  if (releaseCaptureCombo(B2)) return;
+  /* no page yet: the edge of the pull-up when attached comes before the first page */
+  if (bCapturing || doc == NULL) return;
   if (nextScreen[0] < 0) return;
   noInterrupts();
   scrChange = true;
@@ -165,57 +295,96 @@ static void updateB3() {
 #ifdef ENABLE_SAVE_BUTTON
 /* "Save" Operation */
 static void updateSave() {
+  /* no page yet: the edge of the pull-up when attached comes before the first page */
+  if (bCapturing || doc == NULL) return;
+  /* no mutex: the interrupt must not wait for the main loop */
   noInterrupts();
-  pthread_mutex_lock(&mtx);
   MPLog("Save button pressed!\n");
   save_request = SAVE_REQUEST;
-  pthread_mutex_unlock(&mtx);
   interrupts();
 }
 #endif
 
 
 /* UP/DOWN operation related functions */
+/* Item pitch for menu and page screens: narrow it to fit 5 items above the buttons */
+static int menuTop = UI_MENU_TOP;     /* the top of the first row */
+static int menuPitch = UI_MENU_PITCH;
+static int menuRight = UI_ROW_RIGHT;
+static int menuPrev0 = -1;               /* the selected rows drawn last time */
+static int menuPrev1 = -1;
+
+/* place the rows in the middle of the area between the title and the buttons */
+static void layoutMenu(int num) {
+  int area = UI_MENU_BOTTOM - UI_MENU_TOP;
+  if (num < 1) num = 1;
+  menuPitch = area / num;
+  if (menuPitch > UI_MENU_PITCH) menuPitch = UI_MENU_PITCH;
+  menuTop = UI_MENU_TOP + (area - menuPitch*num)/2;
+  menuPrev0 = -1;
+  menuPrev1 = -1;
+}
+
+/* a row of a menu: the selected row is filled with the amber bar */
+static void drawMenuRow(int x0, int x1, int row, const char* text, bool selected) {
+  int y = menuTop + menuPitch*row;
+  int h = menuPitch - UI_ROW_MARGIN;
+  int bg = selected ? UI_SEL_COLOR : ILI9341_BLACK;
+  int fg = selected ? UI_SEL_TEXT  : UI_TEXT_COLOR;
+  tft.fillRoundRect(x0, y, x1 - x0, h, 5, bg);
+  String s = trimText(text);
+  int base = y + h/2 + 6;   /* the capitals are 13 dots high */
+  /* "name - unit": put the unit on a column so that the units line up */
+  int sep = s.indexOf(" - ");
+  if (sep > 0) {
+    String unit = s.substring(sep + 3);
+    unit.trim();
+    s = s.substring(0, sep);
+    s.trim();
+    putTextFont(x0 + (x1 - x0)*UI_ROW_UNIT_POS/100, base, unit.c_str(), fg, &FreeSans9pt7b);
+  }
+  putTextFont(x0 + UI_ROW_TEXT_PAD, base, s.c_str(), fg, &FreeSans9pt7b);
+}
+
 /* Cursor operation for menu and page screens */
 void curOperation(int cur) {
-  uint16_t celDim[4] = {
-     MENU_ITEM0_HEAD
-    ,MENU_ITEM1_HEAD
-    ,MENU_ITEM2_HEAD
-    ,MENU_ITEM3_HEAD
-  };
-  int w = MENU_ITEM_SIDE - TITLE_SIDE;
-  int h = (BUTTON_HEAD-10) - MENU_ITEM0_HEAD;
-  tft.fillRect(TITLE_SIDE, MENU_ITEM0_HEAD, w, h, ILI9341_BLACK); // clear box area
-  putItemCursor(MENU_CUR_SIDE, celDim[cur], ILI9341_YELLOW);  
+  if (cur < 0 || cur >= item0_num) return;
+  if (menuPrev0 >= 0 && menuPrev0 != cur && menuPrev0 < item0_num) {
+    String item = "item" + String(menuPrev0);
+    drawMenuRow(UI_ROW_SIDE, menuRight, menuPrev0, (*doc)[item.c_str()], false);
+  }
+  String item = "item" + String(cur);
+  drawMenuRow(UI_ROW_SIDE, menuRight, cur, (*doc)[item.c_str()], true);
+  menuPrev0 = cur;
 }
 
 
 /* Input operation for input screens */
 void inpOperation(int cur) {
-  int w = INPUT_BOX_WIDTH - INPUT_MARGIN -3;
-  int h = INPUT_BOX_HEIGHT - INPUT_MARGIN -3;
-  tft.fillRect(MENU_ITEM_SIDE, MENU_ITEM1_HEAD, w, h, ILI9341_BLACK); // clear box area
-  putText(MENU_ITEM_SIDE, MENU_ITEM1_HEAD, String(inpsel[cur]), ILI9341_WHITE, 3); 
+  tft.fillRect(UI_INPUT_BOX_SIDE+2, UI_INPUT_BOX_HEAD+2, UI_INPUT_BOX_WIDTH-4, UI_INPUT_BOX_HEIGHT-4, ILI9341_BLACK);
+  String v = String(inpsel[cur]);
+  int w = textWidth(v.c_str(), &FreeSans12pt7b);
+  putTextFont(UI_INPUT_BOX_SIDE + (UI_INPUT_BOX_WIDTH - w)/2, UI_INPUT_BOX_HEAD + UI_INPUT_BOX_HEIGHT/2 + 8
+            , v.c_str(), UI_TEXT_COLOR, &FreeSans12pt7b);
 }
 
 
 /* Cursor operation for dual menu screens */
 void curOperation(int cur0, int cur1) {
-  uint16_t celDim[4] = {
-     DMENU_ITEM0_HEAD
-    ,DMENU_ITEM1_HEAD
-    ,DMENU_ITEM2_HEAD
-    ,DMENU_ITEM3_HEAD
-  };
-  int w0 = DMENU_ITEM_SIDE0 - DMENU_CUR_SIDE0;
-  int h0 = (BUTTON_HEAD-10) - DMENU_ITEM0_HEAD;
-  int w1 = DMENU_ITEM_SIDE1 - DMENU_CUR_SIDE1;
-  int h1 = (BUTTON_HEAD-10) - DMENU_ITEM0_HEAD;
-  tft.fillRect(DMENU_CUR_SIDE0, MENU_ITEM0_HEAD, w0, h0, ILI9341_BLACK); // clear box area
-  tft.fillRect(DMENU_CUR_SIDE1, MENU_ITEM0_HEAD, w1, h1, ILI9341_BLACK); // clear box area
-  putItemCursor(DMENU_CUR_SIDE0, celDim[cur0], ILI9341_YELLOW);  
-  putItemCursor(DMENU_CUR_SIDE1, celDim[cur1], ILI9341_YELLOW);  
+  if (menuPrev0 >= 0 && menuPrev0 != cur0 && menuPrev0 < item0_num) {
+    String item = "item0_" + String(menuPrev0);
+    drawMenuRow(UI_ROW_SIDE, UI_DMENU_SPLIT - UI_ROW_SIDE/2, menuPrev0, (*doc)[item.c_str()], false);
+  }
+  if (menuPrev1 >= 0 && menuPrev1 != cur1 && menuPrev1 < item1_num) {
+    String item = "item1_" + String(menuPrev1);
+    drawMenuRow(UI_DMENU_SPLIT + UI_ROW_SIDE/2, UI_ROW_RIGHT, menuPrev1, (*doc)[item.c_str()], false);
+  }
+  String item0 = "item0_" + String(cur0);
+  String item1 = "item1_" + String(cur1);
+  drawMenuRow(UI_ROW_SIDE, UI_DMENU_SPLIT - UI_ROW_SIDE/2, cur0, (*doc)[item0.c_str()], true);
+  drawMenuRow(UI_DMENU_SPLIT + UI_ROW_SIDE/2, UI_ROW_RIGHT, cur1, (*doc)[item1.c_str()], true);
+  menuPrev0 = cur0;
+  menuPrev1 = cur1;
 }
 
 
@@ -224,22 +393,34 @@ void curOperation(int cur0, int cur1) {
 void buildTitle(DynamicJsonDocument* jdoc) {
   doc = jdoc;
   char* title = (*doc)["title"];
-  putText(TITLE_SIDE, TITLE_HEAD, title, ILI9341_YELLOW, 2);
-  putHorizonLine(TITLE_DECO_LINE, ILI9341_YELLOW);  
+  tft.fillRect(0, 0, SCREEN_WIDTH, TITLE_DECO_LINE, UI_BAR_COLOR);
+  putTextFont(TITLE_SIDE, UI_TITLE_BASE, trimText(title).c_str(), UI_TEXT_COLOR, &FreeSansBold9pt7b);
+  putHorizonLine(TITLE_DECO_LINE, UI_ACCENT_COLOR);
 }
 
 
 /* Building a sign of application selected */
 void buildAppSign(DynamicJsonDocument* jdoc) {
   doc = jdoc;
-  static char appChar[7][4] = {
-    " ","SET","MNT","FFT","DUL","OBT","SPC"
-  }; 
+  static char appChar[8][4] = {
+    " ","SET","MNT","FFT","DUL","OBT","SPC","REC"
+  };
   int16_t appid = (*doc)["id"];
   appid /= 100;
-  if (appid != 0 && appid < 7) {
-    tft.fillRect(DISP_CH_SIDE-10, (TITLE_HEAD-10), 50, 30, ILI9341_GREEN);
-    putText(DISP_CH_SIDE, TITLE_HEAD, appChar[appid], ILI9341_BLACK, 2);
+  if (appid != 0 && appid < 8) {
+    /* green: microphones, magenta: the WAV file, red: the WAV file can't be played */
+    int color = ILI9341_GREEN;
+    const char* sign = appChar[appid];
+    if (srcState == SRC_FILE || srcState == SRC_FILE_SOUND) {
+      color = ILI9341_MAGENTA;
+    } else if (srcState == SRC_FILE_ERROR) {
+      color = ILI9341_RED;
+      sign = "ERR";
+    }
+    tft.fillRoundRect(UI_BADGE_SIDE, UI_BADGE_HEAD, UI_BADGE_WIDTH, UI_BADGE_HEIGHT, 5, color);
+    int w = textWidth(sign, &FreeSansBold9pt7b);
+    putTextFont(UI_BADGE_SIDE + (UI_BADGE_WIDTH - w)/2, UI_BADGE_HEAD + UI_BADGE_HEIGHT/2 + 6
+              , sign, ILI9341_BLACK, &FreeSansBold9pt7b);
   }
 }
 
@@ -253,11 +434,13 @@ void buildInput(DynamicJsonDocument* jdoc) {
   }
   String inp_title = (*doc)["inp_title"];
   String inp_unit = (*doc)["inp_unit"];
-  cur0 = (*doc)["cur0"];
-  tft.drawRect(INPUT_BOX_SIDE, INPUT_BOX_HEAD, INPUT_BOX_WIDTH, INPUT_BOX_HEIGHT, ILI9341_YELLOW);  
-  putText(INPUT_LABEL_SIDE, INPUT_LABEL_HEAD, inp_title, ILI9341_YELLOW, 2);
-  putText(INPUT_UNIT_SIDE, INPUT_UNIT_HEAD, inp_unit, ILI9341_YELLOW, 3);
-  putText(INPUT_ELEM_SIDE, INPUT_ELEM_HEAD, String(inpsel[0]), ILI9341_WHITE, 3);
+  cur0 = validCursor((*doc)["cur0"], inp_num);
+  inp_title.trim();
+  inp_unit.trim();
+  putTextFont(UI_INPUT_BOX_SIDE, UI_INPUT_TITLE_BASE, inp_title.c_str(), UI_ACCENT_COLOR, &FreeSans12pt7b);
+  tft.drawRoundRect(UI_INPUT_BOX_SIDE, UI_INPUT_BOX_HEAD, UI_INPUT_BOX_WIDTH, UI_INPUT_BOX_HEIGHT, 6, UI_ACCENT_COLOR);
+  putTextFont(UI_INPUT_UNIT_SIDE, UI_INPUT_BOX_HEAD + UI_INPUT_BOX_HEIGHT/2 + 8
+            , inp_unit.c_str(), UI_ACCENT_COLOR, &FreeSans12pt7b);
   inpOperation(cur0);
 }
 
@@ -266,14 +449,17 @@ void buildInput(DynamicJsonDocument* jdoc) {
 void buildMenu(DynamicJsonDocument* jdoc) {
   doc = jdoc;
   item0_num = (*doc)["item_num"];
-  cur0 = (*doc)["cur0"];
+  cur0 = validCursor((*doc)["cur0"], item0_num);
+  int ch_disp = (*doc)["ch_disp"];
+  menuRight = (ch_disp > 0) ? UI_ROW_RIGHT_CH : UI_ROW_RIGHT;
+  layoutMenu(item0_num);
 #ifdef SCR_DEBUG
   MPLog("SELECTION ITEM : %d\n", item0_num);
 #endif
   for (int i = 0; i < item0_num; ++i) {
+    if (i == cur0) continue;
     String item = "item" + String(i);
-    char* item_c = (*doc)[item.c_str()];
-    putText(MENU_ITEM_SIDE, MENU_ITEM0_HEAD+40*i, item_c, ILI9341_WHITE, 2);
+    drawMenuRow(UI_ROW_SIDE, menuRight, i, (*doc)[item.c_str()], false);
   }
   curOperation(cur0);
 }
@@ -284,21 +470,22 @@ void buildDMenu(DynamicJsonDocument* jdoc) {
   doc = jdoc;
   item0_num = (*doc)["item0_num"];
   item1_num = (*doc)["item1_num"];
-  cur0 = (*doc)["cur0"];
-  cur1 = (*doc)["cur1"];
+  cur0 = validCursor((*doc)["cur0"], item0_num);
+  cur1 = validCursor((*doc)["cur1"], item1_num);
+  layoutMenu((item0_num > item1_num) ? item0_num : item1_num);
 #ifdef SCR_DEBUG
   MPLog("SELECTION ITEM0 : %d\n", item0_num);
   MPLog("SELECTION ITEM1 : %d\n", item1_num);
 #endif
   for (int i = 0; i < item0_num; ++i) {
+    if (i == cur0) continue;
     String item = "item0_" + String(i);
-    char* item_c = (*doc)[item.c_str()];
-    putText(DMENU_ITEM_SIDE0, MENU_ITEM0_HEAD+40*i, item_c, ILI9341_WHITE, 2);
+    drawMenuRow(UI_ROW_SIDE, UI_DMENU_SPLIT - UI_ROW_SIDE/2, i, (*doc)[item.c_str()], false);
   }
   for (int i = 0; i < item1_num; ++i) {
+    if (i == cur1) continue;
     String item = "item1_" + String(i);
-    char* item_c = (*doc)[item.c_str()];
-    putText(DMENU_ITEM_SIDE1, MENU_ITEM0_HEAD+40*i, item_c, ILI9341_WHITE, 2);
+    drawMenuRow(UI_DMENU_SPLIT + UI_ROW_SIDE/2, UI_ROW_RIGHT, i, (*doc)[item.c_str()], false);
   }
   curOperation(cur0, cur1);
 }
@@ -321,6 +508,11 @@ void build2WayGraph(DynamicJsonDocument* jdoc) {
   doc = jdoc;
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX0_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+1, ILI9341_YELLOW);  
   tft.drawRect(FFT_BOX_SIDE, FFT_BOX1_HEAD, FFT_GRAPH_WIDTH+FFT_MARGIN+1, FFT_GRAPH_HEIGHT+FFT_MARGIN+2, ILI9341_YELLOW); 
+  /* the lower graph of CH2 is not drawn */
+  if (bMonoFile) {
+    putText(FFT_GRAPH_SIDE + (FFT_GRAPH_WIDTH - 9*12)/2, FFT_GRAPH1_HEAD + FFT_GRAPH_HEIGHT/2 - 8
+          , "MONO FILE", ILI9341_RED, 2);
+  }
 }
 
 /* Building the screen for 2 graph applications */
@@ -336,11 +528,19 @@ void buildSpectroGraph(DynamicJsonDocument* jdoc) {
   }
 }
 
-/* Building the screen for the orbit graph application */
-void buildSpace(DynamicJsonDocument* jdoc) {
+/* Building the screen for the recorder application */
+/* the upper graph shows WAV and the lower graph shows FFT of the first channel */
+void buildRecMonitor(DynamicJsonDocument* jdoc) {
   doc = jdoc;
-  // the graph is drawn by applications
+  build2WayGraph(doc);
+  int ch_disp = (*doc)["ch_disp"];
+  int ch0 = (*doc)["ch0"];
+  int ch1 = (*doc)["ch1"];
+  if (ch_disp > 1) sprintf(recChText, "CH%d+%d", ch0, ch1);
+  else             sprintf(recChText, "CH%d", ch0);
+  appRecStatus(true);
 }
+
 
 /* Building a sign of selected channel */
 void buildChStatus(DynamicJsonDocument* jdoc) {
@@ -353,8 +553,11 @@ void buildChStatus(DynamicJsonDocument* jdoc) {
     String ch = "ch" + String(i);
     int8_t ich = (*doc)[ch.c_str()];
     String sch = "CH" + String(ich);
-    tft.drawRect(DISP_CH_SIDE-10, (DISP_CH0_HEAD + 40*i)-10, 50, 30, ILI9341_GREEN);
-    putText(DISP_CH_SIDE, DISP_CH0_HEAD+40*i, sch, ILI9341_GREEN, 2);
+    int y = UI_MENU_TOP + 40*i;
+    tft.drawRoundRect(UI_BADGE_SIDE, y, UI_BADGE_WIDTH, UI_BADGE_HEIGHT + 4, 5, ILI9341_GREEN);
+    int w = textWidth(sch.c_str(), &FreeSansBold9pt7b);
+    putTextFont(UI_BADGE_SIDE + (UI_BADGE_WIDTH - w)/2, y + (UI_BADGE_HEIGHT + 4)/2 + 6
+              , sch.c_str(), ILI9341_GREEN, &FreeSansBold9pt7b);
   }
 }
 
@@ -369,11 +572,11 @@ void buildButton(DynamicJsonDocument* jdoc) {
 #ifdef SCR_DEBUG
   MPLog("Build Buttons\n");
 #endif 
-  putHorizonLine(BUTTON_DECO_LINE, ILI9341_YELLOW);  
-  putText(BUTTON0_SIDE, BUTTON_HEAD, b0, ILI9341_CYAN, 2);
-  putText(BUTTON1_SIDE, BUTTON_HEAD, b1, ILI9341_CYAN, 2);
-  putText(BUTTON2_SIDE, BUTTON_HEAD, b2, ILI9341_CYAN, 2);
-  putText(BUTTON3_SIDE, BUTTON_HEAD, b3, ILI9341_CYAN, 2);  
+  putHorizonLine(BUTTON_DECO_LINE, UI_FRAME_COLOR);
+  putButtonLabel(0, b0);
+  putButtonLabel(1, b1);
+  putButtonLabel(2, b2);
+  putButtonLabel(3, b3);
 }
 
 

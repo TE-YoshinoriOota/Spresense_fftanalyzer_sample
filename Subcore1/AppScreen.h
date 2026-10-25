@@ -4,12 +4,17 @@
 #include <SPI.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
+#include "ShadowILI9341.h"
+#include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
 #include <ArduinoJson.h>
 #include <MP.h>
 
 // #define MP_DEBUG
 // #define SCR_DEBUG
-#define ENABLE_SAVE_BUTTON
+/* the data is saved by pressing - and + together: the save button on D0 is not used */
+// #define ENABLE_SAVE_BUTTON
 
 /* LCD SCREEN SIZE */
 #define SCREEN_WIDTH  (320)
@@ -36,7 +41,6 @@
 #define SCR_TYPE_MNTR  (4)
 #define SCR_TYPE_WVFT  (5)
 #define SCR_TYPE_FFT2  (6)
-#define SCR_TYPE_ORBT  (7)
 #define SCR_TYPE_FLTR  (8)
 #define SCR_TYPE_WVWV  (9)
 #define SCR_TYPE_WFLG  (10)
@@ -45,11 +49,54 @@
 #define SCR_TYPE_WFDB  (13)
 #define SCR_TYPE_FFDB  (14)
 #define SCR_TYPE_SPCT  (15)
+#define SCR_TYPE_RECM  (16)
+#define SCR_TYPE_LSJU  (17)
+
+/* input source sent by Maincore in the page ("src", same as AppSystem.h) */
+#define SRC_MIC         (0)
+#define SRC_FILE        (1)
+#define SRC_FILE_SOUND  (2)
+#define SRC_FILE_ERROR  (3)
 
 /* TITLE COORDINATIONS */
 #define TITLE_DECO_LINE (35)
 #define TITLE_SIDE (10)
 #define TITLE_HEAD (10)
+
+
+/* UI STYLE: title bar, menu rows and button labels drawn with the GFX fonts */
+#define UI_BAR_COLOR     (0x18E5)   /* dark blue gray */
+#define UI_ACCENT_COLOR   ILI9341_YELLOW
+#define UI_SEL_COLOR     (0xFE60)   /* amber: the selected row */
+#define UI_SEL_TEXT       ILI9341_BLACK
+#define UI_TEXT_COLOR     ILI9341_WHITE
+#define UI_BUTTON_COLOR   ILI9341_CYAN
+#define UI_FRAME_COLOR   (0x4208)   /* dark gray */
+#define UI_TITLE_BASE    (23)       /* baseline of the title */
+#define UI_BADGE_SIDE    (262)
+#define UI_BADGE_HEAD    (6)
+#define UI_BADGE_WIDTH   (52)
+#define UI_BADGE_HEIGHT  (22)
+#define UI_MENU_TOP      (40)       /* the area of the menu rows */
+#define UI_MENU_BOTTOM   (208)
+#define UI_MENU_PITCH    (30)       /* at most */
+#define UI_ROW_MARGIN    (4)        /* between rows */
+#define UI_ROW_SIDE      (8)
+#define UI_ROW_RIGHT     (312)
+#define UI_ROW_RIGHT_CH  (252)      /* leave the CH status on the right */
+#define UI_ROW_TEXT_PAD  (10)
+#define UI_ROW_UNIT_POS  (62)       /* % of the row: the column of the units ("Freq Log - dBV") */
+#define UI_SYMBOL_SIZE   (16)       /* "-" and "+" on the buttons */
+#define UI_DMENU_SPLIT   (160)      /* the second column of the double menu */
+#define UI_BUTTON_BASE   (230)      /* baseline of the button labels */
+#define UI_BUTTON_WIDTH  (56)
+const static int uiButtonCenter[4] = { 44, 104, 184, 274 };
+#define UI_INPUT_TITLE_BASE (68)
+#define UI_INPUT_BOX_SIDE   (40)
+#define UI_INPUT_BOX_HEAD   (88)
+#define UI_INPUT_BOX_WIDTH  (120)
+#define UI_INPUT_BOX_HEIGHT (40)
+#define UI_INPUT_UNIT_SIDE  (176)
 
 
 /* BUTTON COORDINATIONS */
@@ -69,6 +116,10 @@
 #define MENU_ITEM1_HEAD (MENU_ITEM0_HEAD+40)
 #define MENU_ITEM2_HEAD (MENU_ITEM1_HEAD+40)
 #define MENU_ITEM3_HEAD (MENU_ITEM2_HEAD+40)
+#define MENU_ITEM_PITCH       (40)
+#define MENU_ITEM_PITCH_DENSE (30) /* for menus with more than 4 items */
+#define MENU_ITEM_PITCH_DENSE6 (27) /* for menus with 6 items */
+#define MENU_ITEM_MAX   (6)
 
 
 /* CH STATUS COORDINATIONS */
@@ -149,6 +200,24 @@
 #define FRAME_WIDTH  FFT_GRAPH_HEIGHT
 #define FRAME_HEIGHT FFT_GRAPH_WIDTH
 
+/* the style of the WAV and FFT graphs: a dark navy background with a grid, */
+/* and the area between the trace and 0 filled with a gradient of the hue of the trace */
+#define GRAPH_BG_COLOR     (0x0023)   /* RGB(0, 6, 28) */
+#define GRAPH_GRID_COLOR   (0x1949)   /* RGB(28, 40, 72) */
+#define GRAPH_AXIS_COLOR   (0x3A90)   /* RGB(60, 80, 130): the line of 0 */
+#define GRAPH_TRACE_BLUE   (0xFFFF)   /* CH1: white on the blue gradient */
+#define GRAPH_TRACE_GREEN  (0x97F2)   /* CH2 */
+#define GRAPH_TRACE_RED    (0xFCB1)   /* the difference CH1 - CH2 */
+#define GRAPH_TRACE_MAGENTA (0xFD1F)  /* the spectrum under the waveform */
+#define GRAPH_HUE_BLUE     (0)
+#define GRAPH_HUE_GREEN    (1)
+#define GRAPH_HUE_RED      (2)
+#define GRAPH_HUE_MAGENTA  (3)
+#define GRAPH_HUES         (4)
+#define GRAPH_LEVELS       (16)       /* steps of the gradient */
+#define GRAPH_GRID_ROWS    (4)        /* horizontal grid: every 1/4 of the height */
+#define GRAPH_TIME_FRAMES  (100)      /* log the drawing time every 100 graphs */
+
 
 /* SPECTROGRAM SCREEN CORDINATION */
 #define SPC_MARGIN (1)
@@ -166,24 +235,22 @@
 #define SPC_COL_SIDE     (SCREEN_WIDTH-SPC_COL_WIDTH-SPC_MARGIN-3)
 
 
-/* ORBIT SCREEN CORDINATION */
-#define ORBIT_MARGIN         (2)
-#define ORBIT_GRAPH_XCENTER  (160)
-#define ORBIT_GRAPH_YCENTER  (120)
-#define ORBIT_GRAPH_RADIUS   (64)
-#define ORBIT_GRAPH_SIZE  ORBIT_GRAPH_RADIUS*2
-#define ORBIT_SIZE  (ORBIT_GRAPH_RADIUS+ORBIT_MARGIN)*2
-#define ORBIT_LIMIT_UM       (10142)
-#define ORBIT_TEXT_BOXW      (60)
-#define ORBIT_TEXT_BOXH      (10)
-#define ORBIT_UNIT_R_SIDE  ORBIT_GRAPH_XCENTER+ORBIT_GRAPH_RADIUS+ORBIT_MARGIN
-#define ORBIT_UNIT_L_SIDE  ORBIT_GRAPH_XCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXW
-#define ORBIT_UNIT_U_HEAD  ORBIT_GRAPH_YCENTER-ORBIT_GRAPH_RADIUS-ORBIT_MARGIN-ORBIT_TEXT_BOXH
-#define ORBIT_UNIT_L_HEAD  ORBIT_GRAPH_YCENTER+ORBIT_GRAPH_RADIUS+ORBIT_MARGIN
-#define ORBIT_INIT_AMP       (20)
-#define ORBIT_MIN_AMP        (1)
-#define ORBIT_MAX_AMP        (100)
-#define ORBIT_AMP_STEP       (10)
+/* LISSAJOUS SCREEN COORDINATION: CH1 on the X axis, CH2 on the Y axis */
+#define LSJ_SIZE         (160)   /* the square graph */
+#define LSJ_SIDE         (8)
+#define LSJ_HEAD         (42)
+#define LSJ_GRID         (20)    /* 8 divisions */
+#define LSJ_STRIP        (16)    /* rows sent to the LCD at a time */
+#define LSJ_DECAY        (160)   /* the afterglow: the brightness x 160/256 every frame */
+#define LSJ_DIM          (8)     /* darker than this is the background */
+#define LSJ_TEXT_SIDE    (LSJ_SIDE + LSJ_SIZE + 12)
+
+/* REC MONITOR SCREEN COORDINATION */
+/* the status is put on the right side of the title */
+#define REC_STAT_SIDE   (150)
+#define REC_STAT0_HEAD  (4)
+#define REC_STAT1_HEAD  (24)
+#define REC_STAT_WIDTH  (DISP_CH_SIDE-10-REC_STAT_SIDE)
 
 /* MULTICORE MESSAGE ID */
 /* 0x10 - 0x70 is for FFT applications */
@@ -192,10 +259,13 @@
 #define SID_REQ_MONDATA  (0x03)
 #define SID_REQ_WAV_WAV  (0x04)
 #define SID_REQ_RAW_FIL  (0x05)
+#define SID_REQ_RECSTRT  (0x06)
+#define SID_REQ_RECSTOP  (0x07)
+#define SID_REQ_SCRCAP   (0x11)  /* 0x09-0x0F can't be used: 0x08 is the save flag */
+#define SID_REQ_SAVED    (0x12)  /* Maincore -> Subcore1: the data is saved (struct SaveStatus) */
 #define SID_REQ_SAVEDAT  (0x08)
 #define SID_REQ_WAV_FFT  (0x10)
 #define SID_REQ_FFT_FFT  (0x20)
-#define SID_REQ_ORBITDT  (0x30)
 #define SID_REQ_SPECTRO  (0x40)
 
 
@@ -206,7 +276,7 @@
 #define APP_ID_FFT_FFT  SID_REQ_FFT_FFT
 #define APP_ID_WAV_WAV  SID_REQ_WAV_WAV
 #define APP_ID_RAW_FIL  SID_REQ_RAW_FIL
-#define APP_ID_ORBITDT  SID_REQ_ORBITDT
+#define APP_ID_LISSAJ  (0x50)  /* asks SID_REQ_WAV_WAV and draws CH1 - CH2 */
 #define APP_ID_SPECTRO  SID_REQ_SPECTRO
 
 /* FFT WINDOW FUNCTION */
@@ -229,13 +299,24 @@
 #define AMP_STEP          (1)
 #define AMP_MIN           (1)
 #define AMP_MAX           (100)
+/* beyond AMP_MAX (and SPC_MAX_AMP) the magnification goes by these steps */
+/* full scale = WAV_MAX_VOL/amp: 4.0, 3.0, 2.0, 1.0 mV */
+const static int highAmpSteps[] = { 125, 167, 250, 500 };
 #define DBV_OFFSET_INIT   (0)
 #define DBV_OFFSET_STEP   (5)
 #define DBV_OFFSET_MIN    (-100)
 #define DBV_RANGE         (100)
+#define DBV_TOP_STEP      (10)   /* FFT REALTIME (dBV): the top follows AMP by 10 dB */
+#define DIFF_DB_RANGE     (20)     /* the difference graph in dB shows -20 to +20 dB */
+#define DIFF_DB_FLOOR     (1.0e-7) /* to avoid log(0) */
+#define MAX_FFT_BINS      (2048)   /* 4096 samples (1600 lines) / 2 */
 #define DBV_MAG_INIT      (1.0)
 #define DBV_MAG_STEP      (0.2) 
-#define DBV_MAG_MIN       (0.2) 
+#define DBV_MAG_MIN       (0.2)
+
+/* magnification steps cycled by B1 on the REC MONITOR screen */
+const static int recAmpSteps[] = { 1, 2, 5, 10, 20, 50, 100, 200, 500 };
+#define REC_AMP_INIT      (50)  /* full scale = WAV_MAX_VOL/50 = 10 mV */
 
 
 /* UTILITY MACRO FUNCTIONS */
@@ -267,7 +348,7 @@
 #define TFT_RST (8)
 
 
-static Adafruit_ILI9341 tft = Adafruit_ILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST); 
+static ShadowILI9341 tft = ShadowILI9341(&SPI, TFT_DC, TFT_CS, TFT_RST); /* keeps a copy for the screen capture */
 
 
 struct Response {
@@ -276,6 +357,8 @@ struct Response {
   int cur0;
   int cur1;
   int next_id;
+  int has_amp;   /* 1: the page is a graph, write amp to the page file */
+  int amp;       /* the magnification of the graph (amp, spcamp or dbvoffset) */
 };
 
 struct SensorData {
@@ -305,13 +388,55 @@ struct WavWavData {
   float df;
 };
 
-struct OrbitData {
-  float acc0;
-  float vel0;
-  float dis0;
-  float acc1;
-  float vel1;
-  float dis1;
+/* recording status owned by Maincore (same layout in AppSystem.h) */
+#define REC_STATE_IDLE      (0)
+#define REC_STATE_RECORDING (1)
+#define REC_STATE_STOPPED   (2)
+#define REC_STATE_ERROR     (3)
+
+/* screen capture: Subcore1 sends the LCD in strips, Maincore writes them to a BMP file */
+/* (same layout in AppSystem.h and AppScreen.h) */
+#define CAP_STATE_OK    (0)   /* the strip is written */
+#define CAP_STATE_DONE  (1)   /* the last strip is written and the file is closed */
+#define CAP_STATE_ERROR (2)
+
+struct CapStrip {
+  int16_t  y;        /* the top line of the strip */
+  int16_t  rows;
+  int16_t  width;
+  int16_t  height;   /* of the screen */
+  uint32_t data;     /* physical address of the RGB565 pixels (top line first) */
+};
+
+/* the result of saving the data (CSV): shown on the graph screen */
+/* (same layout in AppSystem.h and AppScreen.h) */
+#define SAVE_STATE_OK    (0)
+#define SAVE_STATE_ERROR (1)
+
+struct SaveStatus {
+  int  state;
+  int  rows;          /* the rows saved on the screen */
+  char filename[16];  /* the first CSV file (without the folder) */
+};
+
+struct CapStatus {
+  int  state;
+  char filename[16];
+  char message[16];
+};
+
+#define CAP_STRIP_ROWS     (8)
+#define CAP_REPLY_TIMEOUT  (3000)      /* msec */
+#define SAVE_TEXT_MS       (3000)      /* "SAVED file" is shown for this time */
+#define COMBO_GUARD_MS     (200)       /* ignore the chattering of BACK/NEXT after the combination */
+
+struct RecStatus {
+  int      state;
+  uint32_t rate;
+  uint32_t frames;   /* frames written to the fifo */
+  uint32_t dropped;  /* frames dropped because the fifo was full */
+  char     filename[16];
+  char     message[16];
 };
 
 
@@ -358,7 +483,8 @@ const static uint16_t pseudoColors[] =
 /* pointers to memories */
 static uint16_t* frameBuf; 
 static uint16_t* spcFrameBuf;
-static uint16_t* orbitBuf; 
+static uint8_t*  lissBuf;      /* the brightness of the Lissajous figure */
+static uint16_t* lissStrip;    /* the rows converted to RGB565 for the LCD */
 static    float* graphDataBuf;
 static    float* spcDataBuf;
 
@@ -367,7 +493,7 @@ static    float* spcDataBuf;
 static int8_t scrType = 0;
 static bool   scrChange = false;
 
-static int nextScreen[5] = {-1,-1,-1,-1,-1};
+static int nextScreen[MENU_ITEM_MAX] = {-1,-1,-1,-1,-1,-1};
 static int backScreen = -1;
 
 static uint8_t  item0_num = 0;
@@ -375,16 +501,18 @@ static uint8_t  item1_num = 0;
 static uint8_t  inp_num = 0;
 static int8_t   cur0 = 0;
 static int8_t   cur1 = 0;
-static uint16_t inpsel[100];
+static int32_t  inpsel[100];  /* int32_t: 75000 Hz and negative dB */
 
 /* scale related parameters */
 static int      fmaxdisp = 10000; /* Hz */
 static bool     scale_update = false;
 
 /* magnification parameters */
-static int      orbitamp  = ORBIT_MIN_AMP;
 static int      spcamp    = SPC_MIN_AMP;
 static int      amp       = AMP_INIT;
+static int      srcState  = SRC_MIC;  /* input source of the page */
+static bool     bMonoFile = false;    /* the page shows CH2, but the file is mono */
+static float*   diffFftBuf = NULL;    /* the difference graph of FFT DUAL (allocated on the screen) */
 static int      dbvoffset = DBV_OFFSET_INIT;
 
 /* utility parameters */
@@ -397,6 +525,23 @@ static bool     bdBVDisplay = false;
 /* save data flag */
 static int8_t   save_request = SAVE_INIT;
 
+/* recording state on the REC MONITOR screen */
+static bool     bRecording = false;
+static volatile bool rec_toggle_request = false; /* set in the B0 interrupt */
+static struct RecStatus* recStat = NULL; /* received from Maincore */
+static char     recChText[12];   /* "CH1" or "CH1+3" */
+
+/* screen capture by D0 */
+static volatile bool capture_request = false; /* set by pressing BACK and NEXT together */
+static volatile bool bComboPressed = false;   /* BACK and NEXT are pressed together */
+static volatile uint32_t comboEndMs = 0;      /* when both were released */
+/* saving the data (CSV) by - and + */
+static volatile bool bSaveComboPressed = false; /* - and + are pressed together */
+static volatile uint32_t saveComboEndMs = 0;    /* when both were released */
+static volatile bool bCapturing = false;      /* the button interrupts are ignored while true */
+static bool     bPageRequested = true;        /* waiting for the json document from Maincore */
+                                              /* (Maincore sends the first page at boot) */
+
 
 
 /* to avoid conflict between the main loop and interrupt function */
@@ -408,6 +553,7 @@ void hardwareSetup();
 bool updateScreen();
 void stopApplication();
 void getResponse(struct Response* res);
+void restoreGraphAmp(DynamicJsonDocument* doc);
 void updateResponse(char* label, int value, int cur0, int cur1, int next_id);
 
 int  isAppRunning();
@@ -424,8 +570,9 @@ void buildMenu(DynamicJsonDocument* doc);
 void buildDMenu(DynamicJsonDocument* doc);
 void buildMonitor(DynamicJsonDocument* doc);
 void build2WayGraph(DynamicJsonDocument* doc);
-void buildOrbitGraph(DynamicJsonDocument* doc);
+void buildLissajous(DynamicJsonDocument* doc);
 void buildSpectroGraph(DynamicJsonDocument* doc);
+void buildRecMonitor(DynamicJsonDocument* doc);
 void buildChStatus(DynamicJsonDocument* doc);
 void buildButton(DynamicJsonDocument* doc);
 void buildNextBackConnection(DynamicJsonDocument* doc);
@@ -434,13 +581,24 @@ void appSensorValue(float acc, float vel, float dis);
 void appDraw2WayGraph(float* pWav, int len0, float* pFft, int len1, float df);
 void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df);
 void appDraw2WavGraph(float* pWav0, float*pSubWav, int len1, float df);
-void appDrawOrbitGraph(struct OrbitData* odata);
+void appDrawLissajous(float* pX, float* pY, int len);
+void appRecStatus(bool force);
+void appSaveStatus(struct SaveStatus* st);
+void appSaveStatusTimeout();
+void appForgetSaveStatus();
+bool takeRecToggleRequest();
+bool takeCaptureRequest();
+void checkCaptureCombo();
+void checkSaveCombo();
+void captureScreen();
 float get_peak_to_peak(float* pData, int len, float* minValue, float* maxValue);
 float get_peak_frequency(float* pData, int len, float delta_f, float* maxValue);
 
 /* utility functions */
 void drawWavGraph(float* pWav, int len, float df, int amp, int gskip, int dskip
                 , int head, bool scale_update, int color = ILI9341_CYAN);
+void drawDiffFftGraph(float* pFft, float* pSubFft, int len, float df, int amp, int gskip, int dskip
+                    , int interval, float f_min_log, int head, bool scale_update);
 void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int dskip
                 , int head, bool scale_update, int color = ILI9341_MAGENTA
                 , bool peakdisp = true, bool clr = true, bool disp = true);
@@ -459,13 +617,17 @@ void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip
 /* helper functions */
 void putHorizonLine(int h, int color);
 void putItemCursor(int x, int y, int color);
+void putTextFont(int x, int y, const char* str, int color, const GFXfont* font);
+int  textWidth(const char* str, const GFXfont* font);
+String trimText(const char* str);
+void putButtonLabel(int i, const char* label);
 bool putText(int x, int y, String str, int color, int tsize);
 
 void putBufLinearGraph(uint16_t* frameBuf, float* graph
                   , float max_vol, int gskip, int x, int y, int w, int h
                   , uint16_t color, float df, int offset = 0
                   , bool clr = true, bool disp = true);
-void putBufLogGraph(uint16_t* frameBuf, float* graph
+void putBufLogGraph(uint16_t* frameBuf, float* graph, float scale
                   , float max_vol, int len, int dskip, int x, int y, int w, int h
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr = true, bool draw = true, int offset = 0);
@@ -483,15 +645,14 @@ void plotvirticalscale_dbv(int head, int maxdbv, int mindbv);
 void plottimescale(float df, int len, int head, int graphid);
 void plotlinearscale(float df, int gskip, int dskip, int head);
 void plotlogscale(int interval, float df, double f_min_log, int head);
-void plotorbitscale(int mag);
 void plottimescale_for_spc(uint32_t duration);
 void plotverticalscale_spc(float df, int flen, int gskip, int dskip);
 
 /* graphic utility functions */
+void clearGraphGrid(int head);
+void addGraphGrid(int head, int col);
 void writeLineToBuf(uint16_t* fBuf, int16_t x0, int16_t y0
                   , int16_t x1, int16_t y1, int16_t color);
-void writeOrBitGraphToBuf(uint16_t* orbitBuf
-                    , int16_t x0, int16_t y0, int16_t r, uint16_t color);
 float log2f_approx(float X);
 
 

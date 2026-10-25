@@ -5,15 +5,18 @@ DynamicJsonDocument* json;
 void setup() {
   int ret;
   int8_t sid;
-  hardwareSetup();
+  /* MP.begin() first: Maincore waits for the boot completion only for 1 sec */
   ret = MP.begin();
   if (ret < 0) {
     MPLog("MP.begin error: %d\n", ret);
-    while(true) { 
-      error_notifier(MP_ERROR); 
-    }    
+    while(true) {
+      error_notifier(MP_ERROR);
+    }
   }
-  
+  uint32_t t0 = millis();
+  hardwareSetup();
+  MPLog("hardwareSetup: %d ms\n", (int)(millis() - t0));
+
   MP.RecvTimeout(MP_RECV_POLLING);
 }
 
@@ -21,7 +24,8 @@ void loop() {
   int ret;
   int8_t sid = 0x00;
   int appid = 0;
-  struct Response *res = NULL;
+  static struct Response resp; /* sent to Maincore: it must stay valid after MP.Send */
+  struct Response *res = &resp;
   void *data = NULL;
 
   /* Send a request to MainCore */
@@ -30,6 +34,7 @@ void loop() {
     stopApplication();
     getResponse(res);
     sid = SID_REQ_JSONDOC;
+    bPageRequested = true;
     ret = MP.Send(sid, res);
     if (ret < 0) {
       MPLog("MP.Send error: %d\n", ret);
@@ -43,16 +48,40 @@ void loop() {
     pthread_mutex_unlock(&mtx);  
   } 
   
+  /* screen capture by BACK + NEXT: start it only when no reply is expected from Maincore */
+  /* (a data request, or a page change) so that the replies are not mixed */
+  checkCaptureCombo();
+  checkSaveCombo();
+  appSaveStatusTimeout();
+  if (!bPageRequested && (isAppRunning() == 0 || isDataReceived()) && takeCaptureRequest()) {
+    captureScreen();
+  }
+
+  /* REC/STOP requested by B0 on the REC MONITOR screen */
+  if (scrType == SCR_TYPE_RECM && takeRecToggleRequest()) {
+    bRecording = !bRecording;
+    sid = bRecording ? SID_REQ_RECSTRT : SID_REQ_RECSTOP;
+    ret = MP.Send(sid, data); /* data is dummy */
+    if (ret < 0) {
+      MPLog("MP.Send error: %d\n", ret);
+      while(true) {
+        error_notifier(MP_ERROR);
+      }
+    }
+    appRecStatus(true);
+  }
+
   appid = isAppRunning();
-  
+
   if ((appid > 0) && isDataReceived()) {
+    if (bRecording) save_request = SAVE_INIT; /* no CSV while recording */
     switch(appid) {
     case APP_ID_MONDATA: sid = SID_REQ_MONDATA | save_request; break;
     case APP_ID_WAV_FFT: sid = SID_REQ_WAV_FFT | save_request; break;
     case APP_ID_FFT_FFT: sid = SID_REQ_FFT_FFT | save_request; break;
     case APP_ID_WAV_WAV: sid = SID_REQ_WAV_WAV | save_request; break;
     case APP_ID_RAW_FIL: sid = SID_REQ_RAW_FIL | save_request; break;
-    case APP_ID_ORBITDT: sid = SID_REQ_ORBITDT | save_request; break;
+    case APP_ID_LISSAJ:  sid = SID_REQ_WAV_WAV | save_request; break;
     case APP_ID_SPECTRO: sid = SID_REQ_SPECTRO | save_request; break;
   }
   pthread_mutex_lock(&mtx);
@@ -61,6 +90,7 @@ void loop() {
 #endif
   save_request = SAVE_INIT;
   pthread_mutex_unlock(&mtx);
+  if (sid & SID_REQ_SAVEDAT) MPLog("Save the data\n");
       
 #ifdef MP_DEBUG
     MPLog("Request data to Maincore: 0x%02x\n", sid);
@@ -94,11 +124,29 @@ void loop() {
     return;
   }
 
+  /* the result of saving the data: it comes before the data */
+  if (sid == SID_REQ_SAVED) {
+    if (!bPageRequested && isAppRunning() != 0) appSaveStatus((struct SaveStatus*)data);
+    return;
+  }
+
+  /* reply to REC/STOP: the status is updated by Maincore while recording */
+  if (sid == SID_REQ_RECSTRT || sid == SID_REQ_RECSTOP) {
+    if (scrType != SCR_TYPE_RECM) return; /* the page already changed */
+    recStat = (struct RecStatus*)data;
+    if (recStat->state == REC_STATE_ERROR && sid == SID_REQ_RECSTRT) {
+      bRecording = false; /* failed to start */
+    }
+    appRecStatus(true);
+    return;
+  }
+
   /* check if the data is json documents */
   if (sid == SID_REQ_JSONDOC) {
 #ifdef MP_DEBUG
     MPLog("Update screen\n");
 #endif
+    bPageRequested = false;
     json = (DynamicJsonDocument*)data;
     ClearScreen(json);
     char* title = (*json)["title"];
@@ -137,6 +185,7 @@ void loop() {
     MPLog("fft->len(%d), fft->df(%f)\n", fft->len, fft->df);
 #endif  
     appDraw2WayGraph(fft->pWav, fft->len, fft->pFft, fft->len/2, fft->df);
+    if (scrType == SCR_TYPE_RECM) appRecStatus(false);
     receivedData();
     
     uint32_t delay_time = (uint32_t)(1000. / fft->df);
@@ -188,7 +237,9 @@ void loop() {
 #ifdef MP_DEBUG
     MPLog("wav->len(%d), wav->df(%f)\n", wav->len, wav->df);
 #endif
-    appDraw2WavGraph(wav->pWav, wav->pSubWav, wav->len, wav->df);
+    /* the reply may arrive after BACK stopped the application: choose by the screen, not by the app id */
+    if (scrType == SCR_TYPE_LSJU) appDrawLissajous(wav->pWav, wav->pSubWav, wav->len);
+    else appDraw2WavGraph(wav->pWav, wav->pSubWav, wav->len, wav->df);
     receivedData();
     
     uint32_t delay_time = (uint32_t)(1000. / wav->df);
@@ -226,17 +277,6 @@ void loop() {
   }  
 
 
-  if (sid == SID_REQ_ORBITDT) {
-#ifdef MP_DEBUG
-    MPLog("Orbit Data arrived\n");
-#endif
-    /* check if the data is for sensor monitor application */
-    struct OrbitData *odata = (struct OrbitData*)data;
-    appDrawOrbitGraph(odata);
-    receivedData();
-    delay(100); /* delay for avoiding data flicker on LCD */
-    return;
-  }   
 
   if (sid == SID_REQ_SPECTRO) {
 #ifdef MP_DEBUG

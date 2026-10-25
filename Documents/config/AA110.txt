@@ -12,8 +12,8 @@
 ,"item1_v":48000
 ,"item2_v":192000
 ,"ch_disp":0
-,"back":100
-,"next0":120
+,"back":000
+,"next0":100
 ,"res_label":"rate"
 ,"B0":"DOWN"
 ,"B1":"  UP"

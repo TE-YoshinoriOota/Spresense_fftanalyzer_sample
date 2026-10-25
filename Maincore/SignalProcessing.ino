@@ -1,4 +1,5 @@
 #include "AppSystem.h"
+#include <malloc.h>
 
 #define SIG_PROCESSING_PTHREAD
 
@@ -8,13 +9,54 @@ pthread_t sig_thread;
 #endif
 
 static uint32_t last_time; // To measure the processing time
+
+/* called by the audio library when its internal error occurs */
+static void audio_attention_cb(const ErrorAttentionParam *atprm) {
+  if (atprm->error_code >= AS_ATTENTION_CODE_ERROR) {
+    bAudioError = true;
+  }
+}
+/* the free heap of Maincore: the buffers depend on the FFT length and the channels */
+static void log_heap(const char* when) {
+  struct mallinfo mi = mallinfo();
+  MPLog("Heap %s: free %d KB, largest %d KB (samp %d, chnm %d)\n"
+      , when, mi.fordblks/1024, mi.mxordblk/1024, g_samp, g_chnm);
+}
+
+static void stop_sound() {
+  if (!g_sound) return;
+  snd_stop();
+  g_sound = false;
+}
+
 void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   int err, ret;
   int ch, line;
 
+  log_heap("at init");
   /* Initialize Parameters */
   memset(&sData, 0, sizeof(struct SensorData));
-  if (g_chnm == 3) g_chnm = 4;
+  g_play_ok = false;
+  g_sound = false;
+  if (g_src != SRC_MIC) {
+    /* the rate and the channels come from the file, CH1/CH2 are the channels of the file */
+    struct PlayInfo info;
+    g_play_ok = play_open(g_pfile, &info);
+    if (g_play_ok) {
+      g_rate = info.rate;
+      g_chnm = info.chnm;
+    } else {
+      g_chnm = 1;
+    }
+    g_nring = (g_chnm < 2) ? 2 : g_chnm;
+    if (g_ch0 < 1 || g_ch0 > g_chnm) g_ch0 = 1;
+    if (g_chnm == 1) g_ch1 = 2;  /* the second ring buffer is kept zero */
+    else if (g_ch1 < 1 || g_ch1 > g_chnm) g_ch1 = 2;  /* 0 after the single channel select page */
+    MPLog("Play: CH%d CH%d\n", g_ch0, g_ch1);
+  } else {
+    if (g_chnm == 3) g_chnm = 4;
+    g_nring = g_chnm;
+  }
  
   /* Audio Initialization */
   buffer_size = MAX_FIFO_BUFF * g_chnm * sizeof(int16_t);
@@ -30,12 +72,13 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   pWav = (float*)malloc(sizeof(float)*g_samp);
   pSubWav = (float*)malloc(sizeof(float)*g_samp);
   pTmp = (float*)malloc(sizeof(float)*g_samp);
-  ringbuff = new RingBuff*[g_chnm]; // keep double space
-  for (int n = 0; n < g_chnm; ++n) {
+  ringbuff = new RingBuff*[g_nring]; // keep double space
+  for (int n = 0; n < g_nring; ++n) {
     ringbuff[n] = new RingBuff(ringbuff_size);
   }
   if (pRaw == NULL || pWav == NULL || pSubWav == NULL || pTmp == NULL || ringbuff == NULL) {
     MPLog("not enough memory\n");
+    log_heap("at the error");
     while (true) {
       error_notifier(MEM_ERROR);
     }
@@ -52,15 +95,21 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   if (g_lpf != 0) {
     lpf = new IIRClassKai();
     lpf->begin(TYPE_LPF, g_lpf, g_rate, 0.5, g_samp, Planar);
+    lpf2 = new IIRClassKai();
+    lpf2->begin(TYPE_LPF, g_lpf, g_rate, 0.5, g_samp, Planar);
   }
   if (g_hpf != 0) { 
     hpf = new IIRClassKai();
     hpf->begin(TYPE_HPF, g_hpf, g_rate, 0.5, g_samp, Planar);
+    hpf2 = new IIRClassKai();
+    hpf2->begin(TYPE_HPF, g_hpf, g_rate, 0.5, g_samp, Planar);
   }
 
   /* Setup Audio Libraries */
+  bAudioError = false;
+  if (g_src == SRC_MIC) {
   MPLog("theAudio->begin()\n");
-  theAudio->begin();
+  theAudio->begin(audio_attention_cb);
   if (g_rate > 48000) {
     theAudio->setRenderingClockMode(AS_CLKMODE_HIRES);
   } else {
@@ -68,7 +117,14 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   }
   
   MPLog("theAudio->setRecorderMode()\n");
-  theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC);
+  /* the default fifo of the recorder (160KB) leaves no heap for FFT of 4096 x 4ch */
+  /* keep AUDIO_FIFO_MS of the input in frames of the recorder instead */
+  uint32_t fifo = (uint32_t)g_rate * g_chnm * sizeof(int16_t) / 1000 * AUDIO_FIFO_MS;
+  fifo = (fifo + READ_FIFO_FRAME_SIZE - 1) / READ_FIFO_FRAME_SIZE * READ_FIFO_FRAME_SIZE;
+  if (fifo < AUDIO_FIFO_MIN_FRAMES * READ_FIFO_FRAME_SIZE) fifo = AUDIO_FIFO_MIN_FRAMES * READ_FIFO_FRAME_SIZE;
+  if (fifo > SIMPLE_FIFO_BUF_SIZE) fifo = SIMPLE_FIFO_BUF_SIZE;
+  MPLog("recorder fifo: %d KB\n", (int)(fifo/1024));
+  theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC, 0, fifo, false);
 #ifdef USE_SD_CARD
   err = theAudio->initRecorder(AS_CODECTYPE_PCM ,"/mnt/sd0/BIN" ,g_rate ,g_chnm);
 #else
@@ -78,11 +134,13 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     MPLog("Recorder initialize error\n");
     return;
   }
+  } /* g_src == SRC_MIC */
 
   /* FFT initialization */
   /* 0x10-0x70 is reserved for FFT applications */
   if (g_sid & 0x70) {
     MPLog("FFT initialization\n");
+    log_heap("before FFT");
     fft = new FFTClassKai(g_samp);
 
     /* check if the memory is not free */
@@ -94,6 +152,7 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     pSubFft = (float*)malloc(sizeof(float)*g_samp);
     if (pFft == NULL || pSubFft == NULL) {
       MPLog("not enough memory\n");
+      log_heap("at the error");
       while (true) {
         error_notifier(MEM_ERROR);
       }
@@ -119,7 +178,16 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
   
   /* Start recordubg routine */
   MPLog("Start Recording\n");
-  theAudio->startRecorder(); 
+  if (g_src == SRC_MIC) {
+    theAudio->startRecorder(); 
+  } else {
+    if (g_src == SRC_FILE_SOUND && g_play_ok) {
+      struct PlayInfo info = { g_chnm, (uint32_t)g_rate, 0, 0 };
+      g_sound = snd_start(g_pfile, &info, g_vol);
+    }
+    /* the graphs start with the sound */
+    play_restart_clock();
+  }
 #ifndef SIG_PROCESSING_PTHREAD
   ret = task_create("signal_processing", 120, 1024, signal_processing, NULL);
 #else
@@ -156,6 +224,29 @@ static void signal_processing(void* arg) {
   bThreadStopped = false;
   while(bProcessing) { 
 
+    /* the WAV file instead of the microphones */
+    if (g_src != SRC_MIC) {
+      if (g_sound) snd_fill();
+      read_size = play_read(pRaw, MAX_FIFO_BUFF);
+      if (read_size == 0) {
+        usleep(5000);  /* wait for the next frames, and yield the process to the main loop */
+        continue;
+      }
+      int frames = read_size/(g_chnm*sizeof(int16_t));
+      pthread_mutex_lock(&m);
+      for (int i = 0; i < g_chnm; i++) {
+        ringbuff[i]->put((q15_t*)pRaw, frames, g_chnm, i);
+      }
+      pthread_mutex_unlock(&m);
+      continue;
+    }
+
+    /* the capture does not work after the audio error, wait for finish_processing() */
+    if (bAudioError) {
+      usleep(10000);
+      continue;
+    }
+
     err = theAudio->readFrames(pRaw, buffer_size, &read_size);
     if (err != AUDIOLIB_ECODE_OK && err != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
       MPLog("Error err = %d\n", err);
@@ -178,7 +269,10 @@ static void signal_processing(void* arg) {
     for (int i = 0; i < g_chnm; i++) {
       ringbuff[i]->put((q15_t*)pRaw, captured_sample, g_chnm, i);
     }
-    pthread_mutex_unlock(&m);  
+    pthread_mutex_unlock(&m);
+
+    /* copy the selected channels to the recording fifo */
+    rec_push((int16_t*)pRaw, captured_sample);  
     //attension!: if you enable usleep, 192kHz 4096 will not work!!
     //usleep(1); // yield the process to main loop
   }
@@ -189,9 +283,23 @@ static void signal_processing(void* arg) {
 void finish_processing() {
   
   MPLog("Stop Recording\n");
-  theAudio->stopRecorder();
-  theAudio->setReadyMode();
-  theAudio->end();  
+  rec_log_heap("before stopping audio");
+  if (g_src != SRC_MIC) {
+    stop_sound();
+    play_close();
+  } else {
+    if (bAudioError) {
+      /* stopRecorder() did not return after the DMA error */
+      MPLog("Audio error: skip stopRecorder\n");
+    } else {
+      theAudio->stopRecorder();
+      REC_DLOG("stopRecorder done\n");
+    }
+    theAudio->setReadyMode();
+    REC_DLOG("setReadyMode done\n");
+    theAudio->end();  
+    REC_DLOG("Audio end done\n");
+  }
   usleep(1);
 
   /* free the memory for Audio Library */ 
@@ -199,12 +307,14 @@ void finish_processing() {
   if (pWav != NULL) free((float*)pWav);  
   if (pSubWav != NULL) free((float*)pSubWav);  
   if (ringbuff != NULL) {
-    for (int n = 0; n < g_chnm; ++n) {
+    for (int n = 0; n < g_nring; ++n) {
       delete ringbuff[n];
     }
     delete[] ringbuff;
   }
   if (pTmp != NULL) free((float*)pTmp);
+  rec_release();
+  REC_DLOG("Audio memories freed\n");
   pRaw = NULL;
   pWav = NULL;
   pSubWav = NULL;
@@ -214,8 +324,12 @@ void finish_processing() {
   /* free the memory for Filtering */ 
   if (lpf != NULL) delete lpf;
   if (hpf != NULL) delete hpf;
+  if (lpf2 != NULL) delete lpf2;
+  if (hpf2 != NULL) delete hpf2;
   lpf = NULL;
   hpf = NULL;
+  lpf2 = NULL;
+  hpf2 = NULL;
 
   /* sid of 0x10-0x70 is reserved for FFT applications */
   if (g_sid & 0x70) {
@@ -226,9 +340,12 @@ void finish_processing() {
     pSubFft = NULL;
     fft = NULL;
   }
+  log_heap("after finish");
 }
 
 void pause_processing() {
+  /* the file is read while the data is saved: keep the sound and the clock going */
+  if (g_src != SRC_MIC) return;
   if (bProcessing == false) {
     MPLog("Signal Processing already stopped\n");
     return;
@@ -244,6 +361,7 @@ void pause_processing() {
 
 void resume_processing() {
   int ret;
+  if (g_src != SRC_MIC) return;  /* see pause_processing() */
   if (bProcessing == true) {
     MPLog("Signal Processing already running\n");
     return;
@@ -352,12 +470,12 @@ void calc_fft2_data(struct FftFftData* fdata) {
 
   /* digital fitering */
   /* which is better? lpf first? hpf first? */
-  if (lpf != NULL) {
-    lpf->get(pTmp, pSubWav, g_samp);
+  if (lpf2 != NULL) {
+    lpf2->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);
   }
-  if (hpf != NULL) {
-    hpf->get(pTmp, pSubWav, g_samp);
+  if (hpf2 != NULL) {
+    hpf2->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);    
   }
 
@@ -397,12 +515,12 @@ void get_wav2_data(struct WavWavData* wdata) {
 
   /* digital fitering */
   /* which is better? lpf first? hpf first? */
-  if (lpf != NULL) {
-    lpf->get(pTmp, pSubWav, g_samp);
+  if (lpf2 != NULL) {
+    lpf2->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);
   } 
-  if (hpf != NULL) {
-    hpf->get(pTmp, pSubWav, g_samp);
+  if (hpf2 != NULL) {
+    hpf2->get(pTmp, pSubWav, g_samp);
     memcpy(pSubWav, pTmp, sizeof(float)*g_samp);    
   }
   
@@ -442,33 +560,6 @@ void get_rawfil_data(struct WavWavData* wdata) {
 }
 
 
-void calc_orbit_data(struct OrbitData* odata) {
-
-  /* get the data from the ringbuffer */
-  pthread_mutex_lock(&m);
-  ringbuff[(g_ch0-1)]->get(pWav, g_samp);
-  if (g_chnm > 1) { /* fool proof */ 
-    ringbuff[(g_ch1-1)]->get(pSubWav, g_samp);     
-  } else {
-    memset(pSubWav, 0, g_samp*sizeof(float));
-  }
-  pthread_mutex_unlock(&m);  
-  
-  uint32_t cur_time = millis();
-  uint32_t dt = cur_time - last_time;
-  
-  struct SensorData sData;
-  calcSensorData(&sData, pWav, g_samp, dt);
-  odata->acc0 = sData.acc;
-  odata->vel0 = sData.vel;
-  odata->dis0 = sData.dis;
-  
-  calcSensorData(&sData, pSubWav, g_samp, dt);
-  odata->acc1 = sData.acc;
-  odata->vel1 = sData.vel;
-  odata->dis1 = sData.dis;
-  last_time = cur_time;
-}
 
 
 static void calcSensorData(struct SensorData* sdata, float* buf, int bufsize, int32_t dt) {

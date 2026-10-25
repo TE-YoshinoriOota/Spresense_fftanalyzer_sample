@@ -1,5 +1,5 @@
 {
-"id":371
+"id":372
 ,"title":"FFT REALTIME MONITOR"
 ,"type":13
 ,"cur0":0

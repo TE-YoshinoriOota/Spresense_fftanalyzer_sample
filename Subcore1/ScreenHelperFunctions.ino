@@ -27,6 +27,54 @@ void putHorizonLine(int h, int color) {
 }
 
 
+/* Text with a GFX font: y is the baseline. font NULL is the built-in font */
+void putTextFont(int x, int y, const char* str, int color, const GFXfont* font) {
+  tft.setFont(font);
+  tft.setTextSize(1);
+  tft.setTextColor(color);
+  tft.setCursor(x, y);
+  tft.print(str);
+  tft.setFont(NULL);
+}
+
+/* width of the text with a GFX font */
+int textWidth(const char* str, const GFXfont* font) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  tft.setFont(font);
+  tft.setTextSize(1);
+  tft.getTextBounds(str, 0, 0, &x1, &y1, &w, &h);
+  tft.setFont(NULL);
+  return w;
+}
+
+/* the text without the spaces at the both ends (the page files align them with spaces) */
+String trimText(const char* str) {
+  String s = (str == NULL) ? String("") : String(str);
+  s.trim();
+  return s;
+}
+
+/* a label of the button i (0-3) at the bottom */
+void putButtonLabel(int i, const char* label) {
+  int cx = uiButtonCenter[i];
+  int x  = cx - UI_BUTTON_WIDTH/2;
+  tft.fillRect(x, BUTTON_DECO_LINE + 2, UI_BUTTON_WIDTH, SCREEN_HEIGHT - BUTTON_DECO_LINE - 2, ILI9341_BLACK);
+  String s = trimText(label);
+  if (s.length() == 0) return;
+  tft.drawRoundRect(x, BUTTON_DECO_LINE + 5, UI_BUTTON_WIDTH, 24, 5, UI_FRAME_COLOR);
+  /* "(-)" and "(+)" of AMP: draw large symbols instead of the small font */
+  if (s == "(-)" || s == "(+)" || s == "-" || s == "+") {
+    int cy = BUTTON_DECO_LINE + 5 + 12;
+    int half = UI_SYMBOL_SIZE/2;
+    tft.fillRect(cx - half, cy - 1, UI_SYMBOL_SIZE, 3, UI_BUTTON_COLOR);
+    if (s.indexOf('+') >= 0) tft.fillRect(cx - 1, cy - half, 3, UI_SYMBOL_SIZE, UI_BUTTON_COLOR);
+    return;
+  }
+  int w = textWidth(s.c_str(), &FreeSans9pt7b);
+  putTextFont(cx - w/2, UI_BUTTON_BASE, s.c_str(), UI_BUTTON_COLOR, &FreeSans9pt7b);
+}
+
 /* Cursor on a menu or a page screen */
 void putItemCursor(int x, int y, int color) {
   tft.fillRect(x, y, MENU_CUR_SIZE, MENU_CUR_SIZE, color);
@@ -172,7 +220,8 @@ void putColorRange(int amp) {
     unit = "uV"; 
   }
 
-  sprintf(strbuf, "%3d", ivalmax);
+  if (fvalmax < 10.0) snprintf(strbuf, STRLEN, "%3.1f", fvalmax);  /* 1.0 - 9.x mV */
+  else                sprintf(strbuf, "%3d", ivalmax);
   sprintf_right_justifier(strbuf, STRLEN);
   tft.fillRect(SPC_FPEAK_SIDE + 270
         , SPC_FPEAK_HEAD 
@@ -202,11 +251,157 @@ void putPeakFrequencyInPower(float peakFs, float value) {
 }
 
 /* Draw a linear graph on FFT/WAV applications */
+/* the style of the graphs (see GRAPH_xxx in AppScreen.h) */
+/* frameBuf is a bitmap of FFT_GRAPH_WIDTH x FFT_GRAPH_HEIGHT: the pixel of the row y */
+/* and the column x is frameBuf[y*FRAME_HEIGHT + x] (writeLineToBuf takes (y, x)) */
+static uint16_t graphPalette[GRAPH_HUES][GRAPH_LEVELS];
+static bool     graphPaletteReady = false;
+static uint8_t  graphGrid[2][FFT_GRAPH_WIDTH/8];  /* the vertical grid of the upper and lower graphs */
+static int8_t   graphTop[FFT_GRAPH_WIDTH];        /* the row of the trace farthest from 0 in each column */
+static int      graphBase;                        /* the row of 0 */
+static uint32_t graphTimeUs = 0;
+static int      graphTimeCount = 0;
+
+static uint16_t rgb565(int r, int g, int b) {
+  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+static void makeGraphPalette() {
+  /* from the color near 0 to the color at the full scale */
+  static const uint8_t ends[GRAPH_HUES][6] = {
+    { 10, 35, 110,   70, 145, 240 },  /* blue */
+    {  5, 60,  30,   70, 220, 100 },  /* green */
+    { 70, 10,  15,  240,  90,  80 },  /* red */
+    { 60, 10,  60,  240,  80, 240 },  /* magenta */
+  };
+  for (int h = 0; h < GRAPH_HUES; ++h) {
+    for (int i = 0; i < GRAPH_LEVELS; ++i) {
+      int r = ends[h][0] + (ends[h][3] - ends[h][0])*i/(GRAPH_LEVELS-1);
+      int g = ends[h][1] + (ends[h][4] - ends[h][1])*i/(GRAPH_LEVELS-1);
+      int b = ends[h][2] + (ends[h][5] - ends[h][2])*i/(GRAPH_LEVELS-1);
+      graphPalette[h][i] = rgb565(r, g, b);
+    }
+  }
+  graphPaletteReady = true;
+}
+
+static int graphHue(uint16_t color) {
+  if (color == ILI9341_GREEN) return GRAPH_HUE_GREEN;
+  if (color == ILI9341_RED)   return GRAPH_HUE_RED;
+  if (color == ILI9341_MAGENTA) return GRAPH_HUE_MAGENTA;
+  return GRAPH_HUE_BLUE;
+}
+
+static uint16_t graphLineColor(uint16_t color) {
+  static const uint16_t trace[GRAPH_HUES] = { GRAPH_TRACE_BLUE, GRAPH_TRACE_GREEN, GRAPH_TRACE_RED, GRAPH_TRACE_MAGENTA };
+  return trace[graphHue(color)];
+}
+
+static int graphIndex(int head) {
+  return (head == FFT_GRAPH0_HEAD) ? 0 : 1;
+}
+
+/* the vertical grid: put on the labeled marks of the horizontal scale */
+void clearGraphGrid(int head) {
+  memset(graphGrid[graphIndex(head)], 0, sizeof(graphGrid[0]));
+}
+
+void addGraphGrid(int head, int col) {
+  if (col <= 0 || col >= FFT_GRAPH_WIDTH) return;  /* the left edge is the frame */
+  graphGrid[graphIndex(head)][col >> 3] |= 1 << (col & 7);
+}
+
+/* the background with the grid, and the line of 0 if axis >= 0 */
+static void clearGraphBuf(uint16_t* buf, int head, int axis) {
+  if (!graphPaletteReady) makeGraphPalette();
+  const uint8_t* grid = graphGrid[graphIndex(head)];
+  for (int y = 0; y < FRAME_WIDTH; ++y) {
+    uint16_t* row = buf + y*FRAME_HEIGHT;
+    bool hline = ((y + 1) % (FRAME_WIDTH/GRAPH_GRID_ROWS)) == 0 && y < FRAME_WIDTH-1;
+    if (y == axis) {
+      for (int x = 0; x < FRAME_HEIGHT; ++x) row[x] = GRAPH_AXIS_COLOR;
+    } else if (hline) {
+      for (int x = 0; x < FRAME_HEIGHT; ++x) row[x] = GRAPH_GRID_COLOR;
+    } else {
+      for (int x = 0; x < FRAME_HEIGHT; ++x) {
+        row[x] = (grid[x >> 3] & (1 << (x & 7))) ? GRAPH_GRID_COLOR : GRAPH_BG_COLOR;
+      }
+    }
+  }
+}
+
+/* the fill: the farthest row from 0 is kept for each column while the lines are drawn, */
+/* then each column is filled once (to blend CH2 over CH1 evenly) */
+static void graphFillBegin(int base) {
+  if (base < 0) base = 0;
+  if (base > FRAME_WIDTH-1) base = FRAME_WIDTH-1;
+  graphBase = base;
+  memset(graphTop, base, sizeof(graphTop));
+}
+
+static void graphFillSegment(int row0, int col0, int row1, int col1) {
+  if (col0 > col1) {
+    int t = col0; col0 = col1; col1 = t;
+    t = row0; row0 = row1; row1 = t;
+  }
+  int n = col1 - col0;
+  for (int c = col0; c <= col1; ++c) {
+    if (c < 0 || c >= FRAME_HEIGHT) continue;
+    int r = (n == 0) ? ((abs(row0 - graphBase) > abs(row1 - graphBase)) ? row0 : row1)
+                     : row0 + (row1 - row0)*(c - col0)/n;
+    if (r < 0) r = 0;
+    if (r > FRAME_WIDTH-1) r = FRAME_WIDTH-1;
+    if (abs(r - graphBase) > abs(graphTop[c] - graphBase)) graphTop[c] = r;
+  }
+}
+
+static bool isGraphTrace(uint16_t p) {
+  return p == GRAPH_TRACE_BLUE || p == GRAPH_TRACE_GREEN || p == GRAPH_TRACE_RED
+      || p == GRAPH_TRACE_MAGENTA;
+}
+
+static bool isGraphBackground(uint16_t p) {
+  return p == GRAPH_BG_COLOR || p == GRAPH_GRID_COLOR || p == GRAPH_AXIS_COLOR;
+}
+
+static void graphFillEnd(uint16_t* buf, uint16_t color) {
+  const uint16_t* pal = graphPalette[graphHue(color)];
+  int span = (graphBase > FRAME_WIDTH-1-graphBase) ? graphBase : FRAME_WIDTH-1-graphBase;
+  if (span < 1) span = 1;
+  for (int c = 0; c < FRAME_HEIGHT; ++c) {
+    int top = graphTop[c];
+    if (top == graphBase) continue;
+    int y0 = (top < graphBase) ? top : graphBase + 1;
+    int y1 = (top < graphBase) ? graphBase - 1 : top;
+    for (int y = y0; y <= y1; ++y) {
+      uint16_t* p = buf + y*FRAME_HEIGHT + c;
+      if (isGraphTrace(*p)) continue;  /* keep the lines of the other channel */
+      uint16_t col = pal[abs(y - graphBase)*(GRAPH_LEVELS-1)/span];
+      if (isGraphBackground(*p)) *p = col;
+      else *p = ((*p & 0xF7DE) >> 1) + ((col & 0xF7DE) >> 1);  /* CH2 over CH1: the average */
+    }
+  }
+}
+
+/* the time to make and send a graph (the average of GRAPH_TIME_FRAMES graphs) */
+static void graphTimeLog(uint32_t t0, bool draw) {
+  graphTimeUs += micros() - t0;
+  if (!draw) return;
+  if (++graphTimeCount >= GRAPH_TIME_FRAMES) {
+    MPLog("graph draw %d us\n", (int)(graphTimeUs/graphTimeCount));
+    graphTimeUs = 0;
+    graphTimeCount = 0;
+  }
+}
+
 void putBufLinearGraph(uint16_t* frameBuf, float* graph
                      , float max_vol, int gskip, int side, int head, int width, int height
                      , uint16_t color, float df, int offset, bool clr, bool draw) {
-                      
-  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  uint32_t t0 = micros();
+  int base = FRAME_WIDTH - offset - 1;   /* the row of 0 */
+  if (clr) clearGraphBuf(frameBuf, head, (offset > 0) ? base : -1);
+  uint16_t line = graphLineColor(color);
+  graphFillBegin(base);
     
   int m, n;
   for (m = 0, n = 0; m < FRAME_HEIGHT-gskip; m+=gskip, ++n) {
@@ -219,27 +414,48 @@ void putBufLinearGraph(uint16_t* frameBuf, float* graph
     if (val1 > FRAME_WIDTH) val1 = FRAME_WIDTH;
     else if (val1 < 0)      val1 = 0;
     val1 = FRAME_WIDTH - val1 -1;
-    writeLineToBuf(frameBuf, val0, m, val1, m+gskip, color);
+    writeLineToBuf(frameBuf, val0, m, val1, m+gskip, line);
+    graphFillSegment(val0, m, val1, m+gskip);
   }
+  graphFillEnd(frameBuf, color);
   
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+  graphTimeLog(t0, draw);
 }
 
 
+/* the vertical grid of a log graph: on the decades (10Hz, 100Hz, 1kHz, ...) */
+static void putLogGraphGrid(int head, int interval, double f_min_log) {
+  clearGraphGrid(head);
+  for (int32_t s = 10; s <= 100000; s *= 10) {
+    addGraphGrid(head, (int)(log10f_fast(s)*interval - f_min_log));
+  }
+}
+
 /* Draw a log graph on FFT applications */
-void putBufLogGraph(uint16_t* frameBuf, float* graph
+/* graph: the fft data of every bin (bin n is n*df Hz), scale: multiplied to the data */
+/* the bin 1 (df) is on the left edge: every bin is drawn, not to leave a blank */
+/* on the low frequency side, and not to miss a peak on the high frequency side */
+void putBufLogGraph(uint16_t* frameBuf, float* graph, float scale
                   , float max_vol, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr, bool draw, int offset) {
-
-  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  uint32_t t0 = micros();
+  int base = FRAME_WIDTH - offset;   /* the row of 0 */
+  if (base > FRAME_WIDTH-1) base = FRAME_WIDTH-1;
+  if (clr) {
+    putLogGraphGrid(head, interval, f_min_log);
+    clearGraphBuf(frameBuf, head, (offset > 0) ? base : -1);
+  }
+  uint16_t line = graphLineColor(color);
+  graphFillBegin(base);
   len /= dskip;
   for (int n = 1; n < len; ++n) {
-    int val0 = (int)(graph[n]*(FRAME_WIDTH-offset)/max_vol) + offset;
+    int val0 = (int)(graph[n]*scale*(FRAME_WIDTH-offset)/max_vol) + offset;
     if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
     else if (val0 < 0)       val0 = 0;
     val0 = FRAME_WIDTH - val0;
-    int val1 = (int)(graph[n+1]*(FRAME_WIDTH-offset)/max_vol) + offset;
+    int val1 = (int)(graph[n+1]*scale*(FRAME_WIDTH-offset)/max_vol) + offset;
     if (val1 >= FRAME_WIDTH) val1 = FRAME_WIDTH-1;
     else if (val1 < 0)       val1 = 0;
     val1 = FRAME_WIDTH - val1;
@@ -249,29 +465,41 @@ void putBufLogGraph(uint16_t* frameBuf, float* graph
     if (iy0 < 0) iy0 = 0; if (iy0 >= FRAME_HEIGHT) iy0 = FRAME_HEIGHT-1;
     int iy1 = log10f_fast((n+1)*df*dskip)*interval - f_min_log; 
     if (iy1 < 0) iy1 = 0; if (iy1 >= FRAME_HEIGHT) iy1 = FRAME_HEIGHT-1;
-    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, color);
+    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, line);
+    graphFillSegment(val0, iy0, val1, iy1);
   }
+  graphFillEnd(frameBuf, color);
 
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+  graphTimeLog(t0, draw);
 }
 
 
 /* Draw a log graph on FFT applications */
+/* graph: the fft data of every bin, converted to dBV here (see putBufLogGraph) */
 void putBufdBVGraph(uint16_t* frameBuf, float* graph
                   , int max_dbv, int min_dbv, int len, int dskip, int side, int head, int width, int height
                   , uint16_t color, float df, int interval, double f_min_log
                   , bool clr, bool draw, int offset) {
-  if (clr) memset(frameBuf, 0, sizeof(uint16_t)*FRAME_WIDTH*FRAME_HEIGHT);
+  uint32_t t0 = micros();
+  int base = FRAME_WIDTH - offset;   /* the row of the minimum */
+  if (base > FRAME_WIDTH-1) base = FRAME_WIDTH-1;
+  if (clr) {
+    putLogGraphGrid(head, interval, f_min_log);
+    clearGraphBuf(frameBuf, head, (offset > 0) ? base : -1);
+  }
+  uint16_t line = graphLineColor(color);
+  graphFillBegin(base);
   len /= dskip;
   int range = max_dbv - min_dbv;
   float value;
   for (int n = 1; n < len-1; ++n) {
-    value = (graph[n] - min_dbv)/range;
+    value = (20*log10f_fast(graph[n]*WAV_MAX_VOL/1000) - min_dbv)/range;
     int val0 = (int)(value*(FRAME_WIDTH-offset)) + offset;
     if (val0 >= FRAME_WIDTH) val0 = FRAME_WIDTH-1;
     else if (val0 < 0)       val0 = 0;
     val0 = FRAME_WIDTH - val0;
-    value = (graph[n+1] - min_dbv)/range;
+    value = (20*log10f_fast(graph[n+1]*WAV_MAX_VOL/1000) - min_dbv)/range;
     int val1 = (int)(value*(FRAME_WIDTH-offset)) + offset;
     if (val1 >= FRAME_WIDTH) val1 = FRAME_WIDTH-1;
     else if (val1 < 0)       val1 = 0;
@@ -282,10 +510,13 @@ void putBufdBVGraph(uint16_t* frameBuf, float* graph
     if (iy0 < 0) iy0 = 0; if (iy0 >= FRAME_HEIGHT) iy0 = FRAME_HEIGHT-1;
     int iy1 = log10f_fast((n+1)*df*dskip)*interval - f_min_log; 
     if (iy1 < 0) iy1 = 0; if (iy1 >= FRAME_HEIGHT) iy1 = FRAME_HEIGHT-1;
-    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, color);
+    writeLineToBuf(frameBuf, val0, iy0, val1, iy1, line);
+    graphFillSegment(val0, iy0, val1, iy1);
   }
+  graphFillEnd(frameBuf, color);
 
   if (draw) tft.drawRGBBitmap(side, head, (uint16_t*)frameBuf, width, height);
+  graphTimeLog(t0, draw);
 }
 
 
@@ -535,6 +766,7 @@ void plottimescale(float df, int len, int head) {
   MPLog("max_time: %f df: %f srate: %f, len: %d\n", max_time, df, srate, len);
   
   float dtime;
+  clearGraphGrid(head);
   if (max_time < 2.0)        dtime = 0.10;   // 1.3 msec
   else if (max_time < 5.0)   dtime = 0.25;   // 2.7 msec
   else if (max_time < 10.0)  dtime = 0.50;   // 5.3 msec
@@ -569,6 +801,7 @@ void plottimescale(float df, int len, int head) {
       if (n == 100.0 || n == 200.0 || n == max_time-dtime) bMark = true;
     }
     if (bMark) {
+      addGraphGrid(head, line);
       String sline = String(n,1) + String("msec");
       putText(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+4
              , sline, ILI9341_YELLOW, 1);
@@ -606,6 +839,7 @@ void plotlinearscale(float df, int gskip, int dskip, int head) {
 
   uint32_t max_freq = df*dskip*FFT_GRAPH_WIDTH/gskip;
   bool bMark = false;
+  clearGraphGrid(head);
   for (int32_t n = 0; n < max_freq; n += 1000) {
     uint16_t line = (double)(n)/max_freq*FFT_GRAPH_WIDTH;
     tft.drawLine(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+1
@@ -621,6 +855,7 @@ void plotlinearscale(float df, int gskip, int dskip, int head) {
       if (n == 5000 || n == 25000 || n == 50000 || n == 75000 || n == max_freq-1000) bMark = true;
     }
     if (bMark) {
+      addGraphGrid(head, line);
       String sline = String(n/1000) + String("kHz");
       putText(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+4
              , sline, ILI9341_YELLOW, 1);
@@ -665,30 +900,6 @@ void plotlogscale(int interval, float df, double f_min_log, int head) {
 }
 
 
-/* plot orbit scale for orbit graph */
-void plotorbitscale(int mag) {
-  String unitText;
-  MPLog("Orbit magnification: %d\n", mag);
-
-  tft.fillRect(ORBIT_UNIT_R_SIDE, ORBIT_GRAPH_YCENTER, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
-  tft.fillRect(ORBIT_UNIT_L_SIDE, ORBIT_GRAPH_YCENTER, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
-  tft.fillRect(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_U_HEAD, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
-  tft.fillRect(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_L_HEAD, ORBIT_TEXT_BOXW, ORBIT_TEXT_BOXH, ILI9341_BLACK);
-
-  String maxValue = String(ORBIT_LIMIT_UM / mag) + String(" um");
-  unitText = "+" + maxValue;
-  putText(ORBIT_UNIT_R_SIDE, ORBIT_GRAPH_YCENTER, unitText, ILI9341_YELLOW, 1);
-  
-  unitText = "-" + maxValue;
-  putText(ORBIT_UNIT_L_SIDE, ORBIT_GRAPH_YCENTER, unitText, ILI9341_YELLOW, 1);
-
-  unitText = "+" + maxValue;
-  putText(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_U_HEAD, unitText, ILI9341_YELLOW, 1);
-
-  unitText = "-" + maxValue;
-  putText(ORBIT_GRAPH_XCENTER, ORBIT_UNIT_L_HEAD, unitText, ILI9341_YELLOW, 1);
-  
-}
 
 /* Helper function for drawing lines on a graph based on Bresenham's line algorithm */
 #ifndef _swap_int16_t
@@ -750,71 +961,6 @@ void writeLineToBuf(uint16_t* fBuf
 }
 
 
-/* Helper function for drawing the circle for the orbit graph */
-/* 
-void writeOrBitGraphToBuf(uint16_t orbitBuf[ORBIT_SIZE][ORBIT_SIZE]
-                    , int16_t x0, int16_t y0, int16_t r, uint16_t color) {
-*/
-void writeOrBitGraphToBuf(uint16_t* orbitBuf
-                    , int16_t x0, int16_t y0, int16_t r, uint16_t color) {
-  int16_t f = 1 - r;
-  int16_t ddF_x = 1;
-  int16_t ddF_y = -2 * r;
-  int16_t x = 0;
-  int16_t y = r;
-
-  //orbitBuf[x0][y0+r] = color;
-  *(orbitBuf+x0*ORBIT_SIZE+(y0+r)) = color;
-  //orbitBuf[x0][y0-r] = color;
-  *(orbitBuf+x0*ORBIT_SIZE+(y0-r)) = color;
-  //orbitBuf[x0+r][y0] = color;
-  *(orbitBuf+(x0+r)*ORBIT_SIZE+y0) = color;
-  //orbitBuf[x0-r][y0] = color;
-  *(orbitBuf+(x0-r)*ORBIT_SIZE+y0) = color;
-
-  while (x < y) {
-    if (f >= 0) {
-        y--;
-        ddF_y += 2;
-        f += ddF_y;
-    }
-    ++x;
-    ddF_x += 2;
-    f += ddF_x;
-    //orbitBuf[x0+x][y0+y] = color;
-    *(orbitBuf+(x0+x)*ORBIT_SIZE+(y0+y)) = color;
-    //orbitBuf[x0-x][y0+y] = color;
-    *(orbitBuf+(x0-x)*ORBIT_SIZE+(y0+y)) = color;
-    //orbitBuf[x0+x][y0-y] = color;
-    *(orbitBuf+(x0+x)*ORBIT_SIZE+(y0-y)) = color;
-    //orbitBuf[x0-x][y0-y] = color;
-    *(orbitBuf+(x0-x)*ORBIT_SIZE+(y0-y)) = color;
-    //orbitBuf[x0+y][y0+x] = color;
-    *(orbitBuf+(x0+y)*ORBIT_SIZE+(y0+x)) = color;
-    //orbitBuf[x0-y][y0+x] = color;
-    *(orbitBuf+(x0-y)*ORBIT_SIZE+(y0+x)) = color;
-    //orbitBuf[x0+y][y0-x] = color;
-    *(orbitBuf+(x0+y)*ORBIT_SIZE+(y0-x)) = color;
-    //orbitBuf[x0-y][y0-x] = color;
-    *(orbitBuf+(x0-y)*ORBIT_SIZE+(y0-x)) = color;
-  }
-
-  // x axis
-  for (x = 0; x < r; ++x) {
-    //orbitBuf[x0+x][y0] = color;
-    *(orbitBuf+(x0+x)*ORBIT_SIZE+y0) = color;
-    //orbitBuf[x0-x][y0] = color;
-    *(orbitBuf+(x0-x)*ORBIT_SIZE+y0) = color;
-  }
-
-  // y axis
-  for (y = 0; y < r; ++y) {
-    //orbitBuf[x0][y0+y] = color;
-    *(orbitBuf+x0*ORBIT_SIZE+(y0+y)) = color;
-    //orbitBuf[x0][y0-y] = color;
-    *(orbitBuf+x0*ORBIT_SIZE+(y0-y)) = color;
-  }
-}
 
 void sprintf_right_justifier(char* strbuf, int len) {
   char* tmpbuf = (char*)malloc(sizeof(char)*len); 

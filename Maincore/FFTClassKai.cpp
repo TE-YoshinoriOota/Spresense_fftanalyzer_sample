@@ -42,7 +42,7 @@ void FFTClassKai::create_coef(windowType_t type){
     if (type == WindowHamming) {
       coef[i] = 0.54f - (0.46f * arm_cos_f32(2 * PI * (float)i / (m_FFTLEN - 1)));
     } else if(type == WindowHanning) {
-      coef[i] = 0.54f - (1.0f * arm_cos_f32(2 * PI * (float)i / (m_FFTLEN - 1)));
+      coef[i] = 0.5f - (0.5f * arm_cos_f32(2 * PI * (float)i / (m_FFTLEN - 1)));
     } else if (type == WindowFlattop) {
         coef[i] = 0.21557895f - (0.41663158f  * arm_cos_f32(2 * PI * (float)i / (m_FFTLEN - 1)))
                               + (0.277263158f * arm_cos_f32(4 * PI * (float)i / (m_FFTLEN - 1)))
@@ -81,11 +81,13 @@ bool FFTClassKai::fft_init(){
 }
 
 void FFTClassKai::fft(float* pDst, float* pSrc){
+  arm_mult_f32(pSrc, coef, pSrc, m_FFTLEN); /* apply the window function */
   arm_rfft_fast_f32(&S, pSrc, pDst, 0);
 }
 
 void FFTClassKai::fft_amp(float* pDst, float* pSrc){
   /* calculation */
+  arm_mult_f32(pSrc, coef, pSrc, m_FFTLEN); /* apply the window function */
   arm_rfft_fast_f32(&S, pSrc, tmpOutBuf, 0);
   arm_cmplx_mag_f32(&tmpOutBuf[2], &pDst[1], m_FFTLEN/2 - 1);
   pDst[0] = tmpOutBuf[0];
@@ -98,6 +100,7 @@ void FFTClassKai::fft_scaled_amp(float* pDst, float* pSrc) {
   /* which is better, RMS or MAX? */
   arm_rms_f32(pSrc, m_FFTLEN, &signal_voltage); 
   // arm_max_f32(pSrc, m_FFTLEN, &signal_voltage, &index); 
+  arm_mult_f32(pSrc, coef, pSrc, m_FFTLEN); /* apply the window function after taking the RMS */
   arm_rfft_fast_f32(&S, pSrc, tmpOutBuf, 0);
   /* 
    * see the below site to get the reason for the strange arguments for arm_cmplx_mag_f32 

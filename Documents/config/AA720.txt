@@ -1,0 +1,1 @@
+{"id":720,"title":"REC MONITOR","type":16,"cur0":0,"cur1":0,"ch_disp":1,"ch0":1,"ch1":0,"back":710,"next0":000,"res_label":"non","B0":" REC","B1":" AMP","B2":"BACK","B3":"NEXT"}

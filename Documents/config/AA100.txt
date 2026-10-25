@@ -14,8 +14,8 @@
 ,"item2_v":3
 ,"item3_v":4
 ,"ch_disp":0
-,"back":000
-,"next0":110
+,"back":110
+,"next0":120
 ,"res_label":"chnm"
 ,"B0":"DOWN"
 ,"B1":"  UP"
