@@ -15,6 +15,7 @@ Spresense FFT Analyzer sample をもとにしたアプリケーションです�
 
 **SpreMachineScope** は、Spresense のマイク入力（最大 4 チャンネル）の信号を、LCD 上で波形・スペクトル・スペクトログラム・リサージュ図形として表示する計測アプリケーションです。SD カードへの WAV 録音、録音したファイルの再生解析、画面キャプチャ、測定データの CSV 保存もできます。
 
+
 ## 1. 準備
 
 ### 1-1. 必要なもの
@@ -24,12 +25,14 @@ Spresense FFT Analyzer sample をもとにしたアプリケーションです�
 - microSD カード（設定ファイル、録音、CSV、キャプチャの保存先）
 - ヘッドホン（FILE + SOUND で再生音を聞く場合）
 
+
 ### 1-2. 書き込み手順
 1. **DSP コーデックのインストール**: Arduino IDE で「スケッチ例」>「Audio」>「dsp_installer」>「src_installer」を開いて書き込み、シリアルモニタで SD カードを選んでインストールします。
 2. **ライブラリ**: [ArduinoJson（作者フォーク版）](https://github.com/TE-YoshinoriOota/ArduinoJson) と、 Spresense 向けに高速化された [Adafruit_ILI9341](https://github.com/kzhioki/Adafruit_ILI9341) と [Adafruit-GFX-Library](https://github.com/kzhioki/Adafruit-GFX-Library)（いずれも `spresense` ブランチ）を Arduino の libraries フォルダに置きます。
 3. **設定ファイルのコピー**: `Documents/config`  SD カードにまるごとコピーします。システム設定値や画面の設定値用のファイルです。
 4. **Subcore1 の書き込み**: `Subcore1/Subcore1.ino` を開き、「Core」を **SubCore 1** にして書き込みます。
 5. **Maincore の書き込み**: `Maincore/Maincore.ino` を開き、「Core」を **MainCore**、「Memory」を **896 kB** にして書き込みます。デフォルト (768 kB) のままだとメモリ不足で動きません。
+
 
 ## 2. 基本操作
 
