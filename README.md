@@ -29,7 +29,7 @@ Spresense FFT Analyzer sample をもとにしたアプリケーションです�
 - microSD カード（設定ファイル、録音、CSV、キャプチャの保存先）
 - ヘッドホン（FILE + SOUND で再生音を聞く場合）
 
-<br/><br/>
+<br/>
 
 ### 1-2. かんたんインストール（Releases）
 Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-YoshinoriOota/Spresense_fftanalyzer_sample/releases) の zip で書き込めます。
@@ -40,6 +40,8 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 
 初回だけ、ブートローダ v3.4.3 の書き込み（Arduino IDE の「ブートローダを書き込む」）が必要です。USB ドライバ、DSP（SRC）など、詳しくは zip の `README.txt` を見てください。
 
+<br/>
+
 ### 1-3. ソースからの書き込み手順
 1. **DSP コーデックのインストール**: Arduino IDE で「スケッチ例」>「Audio」>「dsp_installer」>「src_installer」を開いて書き込み、シリアルモニタで SD カードを選んでインストールします。
 2. **ライブラリ**: [ArduinoJson（作者フォーク版）](https://github.com/TE-YoshinoriOota/ArduinoJson) と、 Spresense 向けに高速化された [Adafruit_ILI9341](https://github.com/kzhioki/Adafruit_ILI9341) と [Adafruit-GFX-Library](https://github.com/kzhioki/Adafruit-GFX-Library)（いずれも `spresense` ブランチ）を Arduino の libraries フォルダに置きます。
@@ -48,7 +50,8 @@ Arduino IDE でビルドしなくても、[Releases](https://github.com/TE-Yoshi
 5. **Maincore の書き込み**: `Maincore/Maincore.ino` を開き、「Core」を **MainCore**、「Memory」を **896 kB** にして書き込みます。デフォルト (768 kB) のままだとメモリ不足で動きません。
 
 <br/><br/>
----
+<hr/>
+
 
 ## 2. 基本操作
 
@@ -106,7 +109,8 @@ BACK と NEXT を同時に押すと、表示中の画面を SD カードの `CAP
 各画面で選んだ値（チャンネル、ライン数、フィルタ、AMP など）は SD カードの `config/sys.txt` と各画面のファイルに書き込まれ、次回の起動時にも引き継がれます。書き込みは一時ファイルを経由するので、書き込み中に電源が切れても設定ファイルが壊れにくくなっています。
 
 <br/><br/>
----
+<hr/>
+
 
 ## 3. メニュー構成
 
@@ -160,7 +164,8 @@ SPRE MACHINE SCOPE
 各画面で NEXT を押すと次へ進み、最後のモニタ画面で NEXT を押すとホームメニューに戻ります。
 
 <br/><br/>
----
+<hr/>
+
 
 ## 4. 機能ごとの使い方
 
@@ -475,8 +480,8 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 
 ![再生音ボリューム設定画面](Documents/screenshots/SCR00075.png)
 
-<br/>
----
+<br/><br/>
+<hr/>
 
 ## 5. SD カードに作られるファイル
 | ファイル | 内容 |
@@ -489,6 +494,7 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 フォルダは起動時に自動で作られます。以前のバージョンでルートに保存されたファイルも、起動時にそれぞれのフォルダへ移動します（フォルダに同名のファイルがあるときは移動せずルートに残します）。
 
 <br/><br/>
+<hr/>
 
 ## 6. エラー表示（LED）
 エラーが起きると、メインボードの LED が点滅します。
