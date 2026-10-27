@@ -667,6 +667,26 @@ void plotvirticalscale(int head, int mag, bool ac) {
 
 void plotverticalscale_spc(float df, int flen, int gskip, int dskip) {
 
+  /* from the start frequency (FFT START SETTING) */
+  if (fstartshown > 0) {
+    float fspan = df*flen;
+    float step = freq_scale_step(fspan);
+    int nlen = flen*gskip/dskip;
+    for (float f = ceilf(fstartshown/step)*step; f < fstartshown + fspan; f += step) {
+      int nheight = (f - fstartshown)/fspan*nlen;
+      if (nheight >= SPC_GRAPH_HEIGHT) break;
+      tft.drawLine(SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH
+                 , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-nheight
+                 , SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH+3
+                 , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-nheight
+                 , ILI9341_YELLOW);
+      putText(SPC_GRAPH_SIDE+SPC_GRAPH_WIDTH +8
+            , SPC_GRAPH_HEAD+SPC_GRAPH_HEIGHT-nheight-4
+            , freq_scale_text(f, step), ILI9341_YELLOW, 1);
+    }
+    return;
+  }
+
   int fmaxdisp = (int)(df*flen);
   int memori[5];
   memset(memori, 0, sizeof(int)*5);
@@ -862,6 +882,43 @@ void plotlinearscale(float df, int gskip, int dskip, int head) {
       bMark = false;
     }
   } 
+}
+
+
+/* the step of the scale from the start frequency: 1, 2, 5 x 10^n Hz for 5 marks at most */
+static float freq_scale_step(float fspan) {
+  for (float p = 1.0f; p < 1.0e6f; p *= 10.0f) {
+    if (fspan/(1.0f*p) <= 5.0f) return 1.0f*p;
+    if (fspan/(2.0f*p) <= 5.0f) return 2.0f*p;
+    if (fspan/(5.0f*p) <= 5.0f) return 5.0f*p;
+  }
+  return 1.0e6f;
+}
+
+/* a mark of the scale: "500Hz", "12kHz", "12.5k", "12.25k" */
+static String freq_scale_text(float f, float step) {
+  char text[12];
+  if (f < 1000.0f)          sprintf(text, "%dHz", (int)(f + 0.5f));
+  else if (step >= 1000.0f) sprintf(text, "%dkHz", (int)(f/1000.0f + 0.5f));
+  else if (step >= 100.0f)  sprintf(text, "%.1fk", f/1000.0f);
+  else if (step >= 10.0f)   sprintf(text, "%.2fk", f/1000.0f);
+  else                      sprintf(text, "%.3fk", f/1000.0f);
+  return String(text);
+}
+
+/* plot a linear scale which starts from f0 Hz (FFT START SETTING) */
+void plotlinearscale_from(float f0, float fspan, int head) {
+  float step = freq_scale_step(fspan);
+  clearGraphGrid(head);
+  for (float f = ceilf(f0/step)*step; f < f0 + fspan; f += step) {
+    uint16_t line = (f - f0)/fspan*FFT_GRAPH_WIDTH;
+    tft.drawLine(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+1
+               , FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+3
+               , ILI9341_YELLOW);
+    addGraphGrid(head, line);
+    putText(FFT_GRAPH_SIDE + line, head+FFT_GRAPH_HEIGHT+4
+           , freq_scale_text(f, step), ILI9341_YELLOW, 1);
+  }
 }
 
 

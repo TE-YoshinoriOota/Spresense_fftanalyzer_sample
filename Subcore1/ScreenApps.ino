@@ -48,7 +48,13 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
 
   /*********** draw lower graph ***********/
   // I should kick out this routine from this loop
-  int flen = get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len1, df);
+  /* the linear graph starts from the start frequency: the log graphs start from df */
+  int span = fmaxdisp;
+  int k0 = 0;
+  fstartshown = 0;
+  if (bLogDisplay == false) k0 = freq_start_bin(span, len1, df);
+  int flen = (k0 == 0) ? get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len1, df)
+                       : get_scale_param_for_freq(&span, &gskip, &dskip, len1 - k0, df);
   
   if (bLogDisplay == true && bdBVDisplay == false) {
     /* preparation for log graph */
@@ -76,7 +82,7 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
   
   } else {
 
-    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update, ILI9341_MAGENTA);
+    drawLinearFftGraph(pFft + k0, flen, df, g_amp, gskip, dskip, FFT_GRAPH1_HEAD, scale_update, ILI9341_MAGENTA);
 
   }
   scale_update = false;
@@ -108,7 +114,12 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
   /*********** draw upper graph: CH1 and CH2 on the same graph ***********/
   /** check range of fmaxdisp **/
   int gskip, dskip;
-  int flen = get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len, df);
+  int span = fmaxdisp;
+  int k0 = 0;
+  fstartshown = 0;
+  if (bLogDisplay == false) k0 = freq_start_bin(span, len, df);
+  int flen = (k0 == 0) ? get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len, df)
+                       : get_scale_param_for_freq(&span, &gskip, &dskip, len - k0, df);
   int interval = 0;
   float f_min_log = 0;
   if (bLogDisplay == true) get_log_scale_param(&interval, &f_min_log, df);
@@ -128,16 +139,16 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
                   , FFT_GRAPH0_HEAD, false, ILI9341_GREEN, false, false, true);
 
   } else {
-    drawLinearFftGraph(pFft, flen, df, g_amp, gskip, dskip
+    drawLinearFftGraph(pFft + k0, flen, df, g_amp, gskip, dskip
                      , FFT_GRAPH0_HEAD, scale_update, ILI9341_CYAN, true, true, bMonoFile);
     if (!bMonoFile)
-    drawLinearFftGraph(pSubFft, flen, df, g_amp, gskip, dskip
+    drawLinearFftGraph(pSubFft + k0, flen, df, g_amp, gskip, dskip
                      , FFT_GRAPH0_HEAD, false, ILI9341_GREEN, false, false, true);
   }
 
   /************ draw lower graph: the difference CH1 - CH2 ************/
   if (!bMonoFile)
-  drawDiffFftGraph(pFft, pSubFft, flen, df, g_amp, gskip, dskip, interval, f_min_log
+  drawDiffFftGraph(pFft + k0, pSubFft + k0, flen, df, g_amp, gskip, dskip, interval, f_min_log
                  , FFT_GRAPH1_HEAD, scale_update);
   scale_update = false;
 }
@@ -256,14 +267,18 @@ void appDrawSpectroGraph(float* pFft, int len, float df) {
   /*********** draw upper graph ***********/
   // I should kick out this routine from this loop
   int gskip, dskip;
-  int flen = get_scale_param_for_spectro(&gskip, &dskip, &fmaxdisp, len, df); 
+  int span = fmaxdisp;
+  fstartshown = 0;
+  int k0 = freq_start_bin(span, len, df);
+  int flen = (k0 == 0) ? get_scale_param_for_spectro(&gskip, &dskip, &fmaxdisp, len, df)
+                       : get_scale_param_for_spectro(&gskip, &dskip, &span, len - k0, df);
 
 #ifdef SCR_DEBUG
   MPLog("flen: %d gskip: %d dskip: %d fmaxdisp %d\n", flen, gskip, dskip, fmaxdisp);
 #endif
 
   // draw Spectrogram
-  drawSpectroGraph(pFft, flen, df, gskip, dskip, g_amp, scale_update);
+  drawSpectroGraph(pFft + k0, flen, df, gskip, dskip, g_amp, scale_update);
 }
 
 
@@ -338,7 +353,8 @@ void drawDiffFftGraph(float* pFft, float* pSubFft, int len, float df, int amp, i
   } else {
     if (scale_update) {
       plotvirticalscale(head, amp, true);
-      plotlinearscale(df, gskip, dskip, head);
+      if (fstartshown > 0) plotlinearscale_from(fstartshown, df*dskip*FFT_GRAPH_WIDTH/gskip, head);
+      else                 plotlinearscale(df, gskip, dskip, head);
     }
     memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
     for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
@@ -363,13 +379,16 @@ void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int 
   
   /* display peak frequency and its value */
   if (peakdisp == true) {
-    float peakFs = get_peak_frequency(pFft, len, df, &maxValue);
+    float peakFs = get_peak_frequency(pFft, len, df, &maxValue) + fstartshown;
     maxValue *= WAV_MAX_VOL; /* mV */
     putPeakFrequencyInLinear(peakFs, maxValue, head);
   }
   
   /* draw horizontal scale */   
-  if (scale_update) plotlinearscale(df, gskip, dskip, head);
+  if (scale_update) {
+    if (fstartshown > 0) plotlinearscale_from(fstartshown, df*dskip*FFT_GRAPH_WIDTH/gskip, head);
+    else                 plotlinearscale(df, gskip, dskip, head);
+  }
 
   /* copy and scale the data to display */
   if (disp == true)  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
@@ -475,7 +494,7 @@ void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int 
   }
   
   /* display peak frequency and its value */
-  float peakFs = get_peak_frequency(pFft, len, df, &maxValue);
+  float peakFs = get_peak_frequency(pFft, len, df, &maxValue) + fstartshown;
   maxValue *= WAV_MAX_VOL; // mV 
   putPeakFrequencySpc(peakFs, maxValue);
 
@@ -553,7 +572,8 @@ int get_scale_param_for_freq(int* fmaxdisp, int* gskip, int* dskip, int len, flo
       gskip_ = 1;
       dskip_ = round((float)(flen)/FFT_GRAPH_WIDTH); if (dskip_ == 0) dskip_ = 1;
     }
-    target_fmax += 1000;
+    /* the narrow spans (less than 2 kHz) need the finer steps */
+    target_fmax += (*fmaxdisp >= 2000) ? 1000 : (int)ceilf(df);
   } while (*fmaxdisp > df*FFT_GRAPH_WIDTH*dskip_/gskip_);
   if (flen > len) flen = len; /* fail safe */
 #ifdef SCR_DEBUG
@@ -562,6 +582,17 @@ int get_scale_param_for_freq(int* fmaxdisp, int* gskip, int* dskip, int len, flo
   *gskip = gskip_;
   *dskip = dskip_;
   return flen;
+}
+
+/* the first bin of the graph from the start frequency: the graph is kept below sampling_rate/2 */
+int freq_start_bin(int span, int len, float df) {
+  float nyquist = df*(len-1);
+  float f0 = fstartdisp;
+  if (f0 + span > nyquist) f0 = nyquist - span;
+  if (f0 < 0) f0 = 0;
+  int k0 = (int)(f0/df + 0.5f);
+  fstartshown = k0*df;
+  return k0;
 }
 
 void get_log_scale_param(int* interval, float* f_min_log, float df) {

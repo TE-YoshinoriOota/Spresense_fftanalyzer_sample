@@ -243,7 +243,10 @@ static void updateB2() {
   } else if (scrType == SCR_TYPE_INPT) {
     value = inpsel[cur0];
   } else if (scrType == SCR_TYPE_SCLE) {
-    fmaxdisp = inpsel[cur0];
+    /* FFT RANGE SETTING: the span, FFT START SETTING (fstr): the start frequency */
+    if (label != NULL && strcmp(label, "fstr") == 0) fstartdisp = inpsel[cur0];
+    else                                            fmaxdisp   = inpsel[cur0];
+    value = inpsel[cur0];
   } else if (scrType == SCR_TYPE_DMNU) {
     String item0 = "item0_v" + String(cur0);
     String item1 = "item1_v" + String(cur1);
@@ -276,7 +279,10 @@ static void updateB3() {
   } else if (scrType == SCR_TYPE_INPT) {
     value = inpsel[cur0];
   } else if (scrType == SCR_TYPE_SCLE) {
-    fmaxdisp = inpsel[cur0];
+    /* FFT RANGE SETTING: the span, FFT START SETTING (fstr): the start frequency */
+    if (label != NULL && strcmp(label, "fstr") == 0) fstartdisp = inpsel[cur0];
+    else                                            fmaxdisp   = inpsel[cur0];
+    value = inpsel[cur0];
   } else if (scrType == SCR_TYPE_DMNU) {
     String item0 = "item0_v" + String(cur0);
     String item1 = "item1_v" + String(cur1);

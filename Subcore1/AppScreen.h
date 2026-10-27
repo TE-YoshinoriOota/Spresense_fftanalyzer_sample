@@ -504,7 +504,9 @@ static int8_t   cur1 = 0;
 static int32_t  inpsel[100];  /* int32_t: 75000 Hz and negative dB */
 
 /* scale related parameters */
-static int      fmaxdisp = 10000; /* Hz */
+static int      fmaxdisp = 10000; /* Hz: the span of the frequency axis (from the start frequency) */
+static int      fstartdisp = 0;   /* Hz: the start frequency of the linear graphs (FFT START SETTING) */
+static float    fstartshown = 0;  /* Hz: the start frequency of the graph on the screen (on a bin) */
 static bool     scale_update = false;
 
 /* magnification parameters */
@@ -647,6 +649,8 @@ void plotlinearscale(float df, int gskip, int dskip, int head);
 void plotlogscale(int interval, float df, double f_min_log, int head);
 void plottimescale_for_spc(uint32_t duration);
 void plotverticalscale_spc(float df, int flen, int gskip, int dskip);
+void plotlinearscale_from(float f0, float fspan, int head);
+int  freq_start_bin(int span, int len, float df);
 
 /* graphic utility functions */
 void clearGraphGrid(int head);
