@@ -288,9 +288,15 @@ static bool cfg_replace(const String& tmp, const String& path) {
 }
 
 static bool cfg_load(const String& path, DynamicJsonDocument* doc) {
-  if (!CFG_FS.exists(path)) return false;
+  if (!CFG_FS.exists(path)) {
+    MPLog("%s is not found (errno %d)\n", path.c_str(), errno);
+    return false;
+  }
   File f = CFG_FS.open(path, FILE_READ);
-  if (!f) return false;
+  if (!f) {
+    MPLog("Cannot open %s (errno %d)\n", path.c_str(), errno);
+    return false;
+  }
   String str;
   while (f.available()) str += char(f.read());
   f.close();

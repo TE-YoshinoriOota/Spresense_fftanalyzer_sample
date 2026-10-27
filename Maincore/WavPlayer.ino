@@ -26,7 +26,26 @@ static bool     cmp_opened      = false;
 static uint32_t cmp_data_start  = 0;
 static uint32_t cmp_data_bytes  = 0;
 static uint32_t cmp_pos         = 0;
-#define PLAY_PAIR_CHUNK (256)  /* frames read from each file at a time */
+#define PLAY_PAIR_CHUNK (1024) /* frames read from each file at a time (fewer reads of the SD card) */
+/* not on the stack: the capture thread has a small stack (the default of pthread) */
+/* aligned: the FAT reads whole sectors into the buffer by DMA, which times out (ETIMEDOUT) */
+/* on a buffer of 2-byte alignment (the buffer of play_read() comes from malloc)             */
+static int16_t  pair_a[PLAY_PAIR_CHUNK] __attribute__((aligned(32)));
+static int16_t  pair_b[PLAY_PAIR_CHUNK] __attribute__((aligned(32)));
+
+/* read the bytes: a read may return less than asked */
+static bool play_read_all(File& f, uint8_t* p, int bytes) {
+  while (bytes > 0) {
+    int r = f.read(p, bytes);
+    if (r <= 0) {
+      MPLog("Play: read %d of %d bytes (errno %d)\n", r, bytes, errno);
+      return false;
+    }
+    p += r;
+    bytes -= r;
+  }
+  return true;
+}
 
 static uint32_t play_le32(const uint8_t* p) {
   return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -155,7 +174,8 @@ bool play_open_compare(int no, const struct PlayInfo* first) {
 
 /* the two mono files into the stereo frames: false at a read error */
 static bool play_read_pair(int16_t* out, uint32_t frames) {
-  int16_t a[PLAY_PAIR_CHUNK], b[PLAY_PAIR_CHUNK];
+  int16_t* a = pair_a;
+  int16_t* b = pair_b;
   while (frames > 0) {
     uint32_t n = frames;
     if (n > PLAY_PAIR_CHUNK) n = PLAY_PAIR_CHUNK;
@@ -172,7 +192,12 @@ static bool play_read_pair(int16_t* out, uint32_t frames) {
     if (n > ra) n = ra;
     if (n > rb) n = rb;
     int bytes = n * sizeof(int16_t);
-    if (play_file.read((uint8_t*)a, bytes) != bytes || cmp_file.read((uint8_t*)b, bytes) != bytes) {
+    if (!play_read_all(play_file, (uint8_t*)a, bytes)) {
+      MPLog("Play: read error (CH1 at %d)\n", (int)play_pos);
+      return false;
+    }
+    if (!play_read_all(cmp_file, (uint8_t*)b, bytes)) {
+      MPLog("Play: read error (CH2 at %d)\n", (int)cmp_pos);
       return false;
     }
     play_pos += bytes;
