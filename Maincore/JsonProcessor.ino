@@ -1,4 +1,6 @@
 #include "AppSystem.h"
+#include <errno.h>
+#include <sys/boardctl.h>
 
 /*
  * sys.txt is the master of the settings.
@@ -312,11 +314,24 @@ static bool cfg_load(const String& path, DynamicJsonDocument* doc) {
   return true;
 }
 
+/* the SD card does not answer any more (ETIMEDOUT, EIO): it can't be mounted again, so restart */
+/* instead of stopping with the LED (a missing file is ENOENT and stops with the LED as before)  */
+static void cfg_restart_on_sd_error(int err) {
+  if (!g_booted) return;  /* not at boot: a broken card would restart again and again */
+  if (err != ETIMEDOUT && err != EIO) return;
+  MPLog("SD card error (errno %d): restart\n", err);
+  usleep(200 * 1000);
+  boardctl(BOARDIOC_RESET, 0);
+}
+
 static bool cfg_read(const String& name, DynamicJsonDocument* doc) {
   String path = cfg_path(name);
   if (cfg_load(path, doc)) return true;
   String tmp = cfg_tmp(name);
-  if (!cfg_load(tmp, doc)) return false;
+  if (!cfg_load(tmp, doc)) {
+    cfg_restart_on_sd_error(errno);
+    return false;
+  }
   MPLog("Recovered %s from %s\n", path.c_str(), tmp.c_str());
   cfg_replace(tmp, path);
   return true;
@@ -328,7 +343,9 @@ static bool cfg_write(const String& name, DynamicJsonDocument* doc) {
   if (CFG_FS.exists(tmp)) CFG_FS.remove(tmp);
   File f = CFG_FS.open(tmp, FILE_WRITE);
   if (!f) {
-    MPLog("Cannot open %s\n", tmp.c_str());
+    int err = errno;
+    MPLog("Cannot open %s (errno %d)\n", tmp.c_str(), err);
+    cfg_restart_on_sd_error(err);
     return false;
   }
   size_t wsize = serializeJson(*doc, f);

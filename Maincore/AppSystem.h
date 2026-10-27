@@ -88,6 +88,7 @@ SDClass theSD;
 #define PLAY_SCAN_MAX    (64)  /* the newest files probed for the file to compare */
 /* the page to select the second mono file to compare (FILE only, AA815.txt) */
 #define PLAY_CMP_PAGE    (815)
+#define PLAY_ERROR_MS    (3000) /* "SD READ ERROR" again after it disappears (SAVE_TEXT_MS of Subcore1) */
 /* FFT lines: 3200 and 6400 lines (8192 and 16384 samples) are for the WAV file without the sound */
 #define LINE_MAX         (1600)
 #define LINE_MAX_FILE    (6400)
@@ -186,6 +187,7 @@ struct CapStrip {
 /* (same layout in AppSystem.h and AppScreen.h) */
 #define SAVE_STATE_OK    (0)
 #define SAVE_STATE_ERROR (1)
+#define SAVE_STATE_MESSAGE (2)  /* the message in filename, in red (e.g. "SD READ ERROR") */
 
 struct SaveStatus {
   int  state;
@@ -278,6 +280,7 @@ static int  g_rech;  /* number of channels to record */
 static int  g_src;   /* input source: SRC_MIC or SRC_FILE */
 static int  g_pfile; /* number of the file to play (RECnnnnn.WAV) */
 static int  g_pcmp;  /* number of the mono file to compare as CH2 (FILE only, 0: none) */
+static bool g_booted = false;  /* setup() is done: restart at an error of the SD card */
 static int  g_nring; /* number of the ring buffers (2 for a mono file, CH2 is kept zero) */
 static bool g_play_ok; /* the file is opened for SRC_FILE */
 static bool g_sound;   /* the file is played on the headphone jack */
@@ -326,6 +329,7 @@ void play_list_files(DynamicJsonDocument* doc, int pfile);
 void play_list_compare(DynamicJsonDocument* doc, int pfile, int pcmp);
 bool play_pair_ok(int pfile, int pcmp);
 bool play_open_compare(int no, const struct PlayInfo* first);
+void play_notify_error();
 void play_route_compare(struct Response* res, DynamicJsonDocument* sys);
 bool snd_start(int no, struct PlayInfo* info, int vol);
 void snd_fill();

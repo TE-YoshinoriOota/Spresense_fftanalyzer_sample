@@ -19,6 +19,7 @@ static int      play_frame_bytes = 2;
 static uint32_t play_rate       = 0;
 static uint32_t play_start_us   = 0;
 static uint32_t play_frames_out = 0;  /* frames read since play_start_us */
+static volatile bool play_failed = false;  /* the file could not be read: shown on the graph */
 
 /* the second mono file to compare (CH2) */
 static File     cmp_file;
@@ -133,6 +134,7 @@ bool play_open(int no, struct PlayInfo* info) {
   play_pos         = 0;
   play_file.seek(play_data_start);
   play_opened = true;
+  play_failed = false;
   MPLog("Play: %s %dch %dHz %d bytes\n", name, info->chnm, (int)info->rate, (int)play_data_bytes);
   return true;
 }
@@ -212,6 +214,19 @@ static bool play_read_pair(int16_t* out, uint32_t frames) {
   return true;
 }
 
+/* "SD READ ERROR" on the graph while the file can't be read (every SAVE_TEXT_MS of Subcore1) */
+/* call it before the data is sent: Subcore1 shows it with the result of saving the data     */
+void play_notify_error() {
+  static uint32_t last_ms = 0;
+  static struct SaveStatus msg;
+  if (!play_failed || millis() - last_ms < PLAY_ERROR_MS) return;
+  last_ms = millis();
+  memset(&msg, 0, sizeof(msg));
+  msg.state = SAVE_STATE_MESSAGE;
+  strcpy(msg.filename, "SD READ ERROR");
+  MP.Send(SID_REQ_SAVED, &msg, SUBCORE);
+}
+
 /* call it when the capture thread starts */
 void play_restart_clock() {
   play_start_us   = micros();
@@ -240,6 +255,7 @@ int play_read(char* buf, int max_frames) {
     } else {
       MPLog("Play: read error\n");
       play_close();
+      play_failed = true;
     }
   }
   while (!cmp_opened && play_opened && done < want) {
@@ -254,6 +270,7 @@ int play_read(char* buf, int max_frames) {
     if (r <= 0) {
       MPLog("Play: read error\n");
       play_close();
+      play_failed = true;
       break;
     }
     done += r;

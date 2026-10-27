@@ -133,7 +133,7 @@ SPRE MACHINE SCOPE
 │　　　       └─ LPF設定 
 │　    　　       └─ HPF設定 
 │        　　　       └─ D-FILTER MONITOR
-│        　　　           └─ FFT 表示レンジ設定
+│        　　　           └─ FFT 表示幅設定 → 開始周波数設定
 │        　　　               └─ グラフ種類選択
 │        　　　                   └─ FFT REALTIME MONITOR
 ├─ DUAL FFT MONITOR 
@@ -142,7 +142,7 @@ SPRE MACHINE SCOPE
 │　　　       └─ LPF設定 
 │　    　　       └─ HPF設定 
 │        　　　       └─ DUAL SIGNAL MONITOR
-│        　　　           └─ FFT 表示レンジ設定
+│        　　　           └─ FFT 表示幅設定 → 開始周波数設定
 │        　　　               └─ グラフ種類選択
 │        　　　                   └─ FFT DUAL MONITOR / LISSAJOUS MONITOR
 ├─ SPECTROGRAM MONITOR  
@@ -151,7 +151,7 @@ SPRE MACHINE SCOPE
 │　　　       └─ LPF設定 
 │　    　　       └─ HPF設定 
 │        　　　       └─ D-FILTER MONITOR
-│        　　　           └─ FFT 表示レンジ設定
+│        　　　           └─ FFT 表示幅設定 → 開始周波数設定
 │        　　　               └─ SPECTROGRAM MONITOR
 ├─ RECORDER 
 │    └─ 録音チャンネル数設定 
@@ -160,7 +160,8 @@ SPRE MACHINE SCOPE
 └─ INPUT SOURCE
      ├─ MIC（マイク入力）
      ├─ FILE（録音解析のみ）
-     │   └─ プレイバックファイル選択       
+     │   └─ プレイバックファイル選択
+     │       └─ 比較ファイル選択（1ch のファイルで、比べられるファイルがあるとき）
      └─ FILE + SOUND（録音解析と再生）
          └─ プレイバックボリューム設定       
              └─ プレイバックファイル選択
@@ -204,10 +205,11 @@ SPRE MACHINE SCOPE
 ### 4-2. 信号解析の共通の設定画面
 | 設定                | 選択肢                                                                        | 備考                                            |
 | ----------------- | -------------------------------------------------------------------------- | --------------------------------------------- |
-| FFT LINE SETTING  | 100 / 200 / 400 / 800 / 1600 ライン                                           | それぞれ 256 / 512 / 1024 / 2048 / 4096 サンプルで FFT |
+| FFT LINE SETTING  | 100 / 200 / 400 / 800 / 1600 ライン（FILE のときは 3200 / 6400 ラインも） | それぞれ 256 / 512 / 1024 / 2048 / 4096（/ 8192 / 16384）サンプルで FFT |
 | LOW PASS FILTER   | 0 / 1k / 2k / 5k / 10k / 15k / 20k Hz                                      | 0 はフィルタなし                                     |
 | HIGH PASS FILTER  | 0 / 5 / 10 / 15 / 20 / 100 / 200 / 500 / 1k / 2k / 5k / 10k / 15k / 20k Hz | 0 はフィルタなし                                     |
-| FFT RANGE SETTING | 2 k 〜 75 kHz                                                               | グラフに表示する最大周波数                                 |
+| FFT RANGE SETTING | 200 / 500 / 1k / 2k 〜 75 kHz                                               | グラフに表示する周波数の幅（開始周波数から）                    |
+| FFT START SETTING | 0 / 100 / 200 / 500 / 1k / 2k / 5k / 10k / 15k / 20k / 40k / 60k Hz        | グラフの開始周波数（周波数軸がリニアのグラフとスペクトログラム） |
 
 フィルタは CH1 と CH2 の両方に、同じ設定でかかります。フィルタは 2 次の IIR（Q = 0.5）で、設定した周波数での減衰は −6 dB、その先は 12 dB/oct で減衰します。サンプリングレートの半分以上の周波数は選択肢に表示されません（16 kHz では LPF / HPF とも 5k Hz まで）。
 
@@ -233,6 +235,8 @@ SPRE MACHINE SCOPE
 #### 4-3-3. 解析ライン数選択画面
 
 解析するライン数を選択します。ラインとは振動解析でよく使われる用語で 100 LINES は 1 フレーム 256サンプルを表します。したがって、400 LINES の場合は、1 フレーム 1024 サンプル。1600 LINES の場合は、4096 サンプルにあたります。
+
+INPUT SOURCE が FILE のときだけ、3200 LINES（8192 サンプル）と 6400 LINES（16384 サンプル）も選べます。録音したファイルは実時間で処理しなくてよいので、細かい周波数（48 kHz の 6400 LINES で約 2.9 Hz 刻み）まで見られます。MIC と FILE + SOUND では 1600 LINES までです。
 
 ![ライン数選択画面](Documents/screenshots/SCR00012.png)
 
@@ -262,9 +266,13 @@ SPRE MACHINE SCOPE
 
 <br/>
 
-#### 4-3-7. FFT出力レンジ設定画面
+#### 4-3-7. FFT 表示幅・開始周波数設定画面
 
-FFT出力レンジを設定画面です。最大の出力周波数を設定します。ここで、例えば「5000 Hz」に設定すると、FFTの出力が 5000 Hz までになります。低周波数のスペクトルの様子を拡大してみたいときに使うことができます。
+FFT RANGE SETTING（Frequency Span）でグラフに表示する周波数の幅を、続く FFT START SETTING（Start Frequency）で表示を始める周波数を設定します。グラフには「開始周波数 〜 開始周波数 + 表示幅」が表示されます。例えば表示幅を「2000 Hz」、開始周波数を「10000 Hz」にすると、10 k 〜 12 kHz を拡大して見られます。開始周波数が 0 のときは、0 Hz から表示幅までの表示です。
+
+- 開始周波数が使われるのは、周波数軸がリニアのグラフ（`Freq Linear - mV`）とスペクトログラムです。対数軸のグラフは、従来どおり低い周波数から表示します。
+- 開始周波数 + 表示幅がサンプリングレートの半分を超えるときは、開始周波数を自動で下げて画面に収めます。
+- ピーク周波数の表示は、開始周波数を含めた実際の周波数です。
 
 ![FFT出力レンジ設定画面](Documents/screenshots/SCR00017.png)
 
@@ -390,7 +398,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 ![ホーム画面](Documents/screenshots/SCR00081.png)
 <br/>
 
-#### 4-5-2. チャンネル選択・ライン選択・フィルタ設定・FFTレンジ設定
+#### 4-5-2. チャンネル選択・ライン選択・フィルタ設定・FFT 表示幅と開始周波数の設定
 
 これらの設定は、「**SINGLE FFT MONITOR**」の設定と同じですので省略します。
 
@@ -452,7 +460,7 @@ FFT出力レンジを設定したら、出力するグラフを選択する画�
 | 選択肢          | 動作                                                                                                                                                                                                 |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MIC          | マイク入力を解析します（通常の動作）                                                                                                                                                                                 |
-| FILE         | SD カードの `RECDATA/RECnnnnn.WAV` を入力として解析します。PLAYBACK FILE 画面で、最大 5 件のファイル（レート・チャンネル数・長さを表示）から選びます                                                                                                   |
+| FILE         | SD カードの `RECDATA/RECnnnnn.WAV` を入力として解析します。PLAYBACK FILE 画面で、新しい順に 20 件までのファイル（レート・チャンネル数・長さを表示）から選びます。1ch のファイルは、同じレートの 1ch のファイルと比べられます（4-7-5）                                                    |
 | FILE + SOUND | FILE と同様に解析しながら、ヘッドホン端子から音を再生します。PLAYBACK VOLUME 画面で音量（+12 〜 −60 dB、初期値 −30 dB）を選んでから、ファイルを選びます。0 dB より上は小さな振動音を聞くためのもので、大きな信号では音が割れたり大きすぎたりするので、ヘッドホンを耳から離して確かめてから上げてください。再生音にも LPF / HPF が適用されます |
 
 <br/>
@@ -476,7 +484,7 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 
 #### 4-7-3. プレイバックファイル選択画面
 
-録音したファイルを選択する画面です。ファイル名、サンプリングレート、チャンネ数、録音時間を表示します。
+録音したファイルを選択する画面です。ファイル名、サンプリングレート、チャンネル数、録音時間を表示します。新しい順に 20 件まで表示し、6 件を超えるときはカーソルに合わせてスクロールします（隠れた項目があると右端に三角が出ます）。
 
 ![プレイバックファイル選択画面](Documents/screenshots/SCR00073.png)
 
@@ -488,6 +496,17 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 再生ファイルをスピーカーで出力する際のボリュームを設定できます。12 dB 〜 - 60 dB まで設定でき、小さい値ほど音が小さくなります。
 
 ![再生音ボリューム設定画面](Documents/screenshots/SCR00075.png)
+
+<br/>
+
+
+#### 4-7-5. 比較ファイル選択画面（FILE のみ）
+
+FILE で 1ch のファイルを選ぶと、同じサンプリングレートの 1ch のファイルがあるときは COMPARE FILE 画面が続きます。2 つ目のファイルを選ぶと、1 つ目が CH1、2 つ目が CH2 になり、2ch のファイルと同じように解析できます。例えば対策前と対策後の振動を DUAL FFT MONITOR で重ねて表示し、差分を見られます。比べないときは `NONE` を選びます。
+
+- 2 つのファイルの長さが違うときは、短いほうが終わったところで両方を先頭に戻して繰り返します。
+- FILE + SOUND では使えません。
+- 1 つ目のファイルを選び直すと、比較の選択は `NONE` に戻ります。
 
 <br/><br/>
 <hr/>
@@ -516,6 +535,8 @@ MIC (マイク入力)、FILE (信号解析のみ)、FILE + SOUND (信号解析�
 | LED3 | メモリ不足 | ライン数やチャンネル数を減らす |
 
 シリアルモニタ（115200 bps）に、エラーの原因となったファイル名などが表示されます。
+
+FILE / FILE + SOUND で録音ファイルが読めなくなったときは、グラフの右上に赤で `SD READ ERROR` と表示されます。SD カードが応答しなくなった場合は、画面を移るときに自動でリセットして起動し直します。
 
 <br/><br/>
 <br/><br/>
@@ -623,7 +644,7 @@ SPRE MACHINE SCOPE
 │            └─ LPF
 │                └─ HPF
 │                    └─ D-FILTER MONITOR
-│                        └─ FFT range
+│                        └─ FFT span → Start frequency
 │                            └─ Graph type
 │                                └─ FFT REALTIME MONITOR
 ├─ DUAL FFT MONITOR
@@ -632,7 +653,7 @@ SPRE MACHINE SCOPE
 │            └─ LPF
 │                └─ HPF
 │                    └─ DUAL SIGNAL MONITOR
-│                        └─ FFT range
+│                        └─ FFT span → Start frequency
 │                            └─ Graph type
 │                                └─ FFT DUAL MONITOR / LISSAJOUS MONITOR
 ├─ SPECTROGRAM MONITOR
@@ -641,7 +662,7 @@ SPRE MACHINE SCOPE
 │            └─ LPF
 │                └─ HPF
 │                    └─ D-FILTER MONITOR
-│                        └─ FFT range
+│                        └─ FFT span → Start frequency
 │                            └─ SPECTROGRAM MONITOR
 ├─ RECORDER
 │    └─ Recording channels
@@ -651,6 +672,7 @@ SPRE MACHINE SCOPE
      ├─ MIC (microphone input)
      ├─ FILE (analysis of a recording only)
      │   └─ Playback file
+     │       └─ Compare file (a 1ch file, when there is a file to compare)
      └─ FILE + SOUND (analysis and playback of a recording)
          └─ Playback volume
              └─ Playback file
@@ -684,10 +706,11 @@ The number of microphone inputs to use. At a sampling rate of 192 kHz, only up t
 ### 4-2. Common setting screens of the signal analysis
 | Setting | Choices | Note |
 |---|---|---|
-| FFT LINE SETTING | 100 / 200 / 400 / 800 / 1600 lines | FFT of 256 / 512 / 1024 / 2048 / 4096 samples |
+| FFT LINE SETTING | 100 / 200 / 400 / 800 / 1600 lines (also 3200 / 6400 lines with FILE) | FFT of 256 / 512 / 1024 / 2048 / 4096 (/ 8192 / 16384) samples |
 | LOW PASS FILTER | 0 / 1k / 2k / 5k / 10k / 15k / 20k Hz | 0: no filter |
 | HIGH PASS FILTER | 0 / 5 / 10 / 15 / 20 / 100 / 200 / 500 / 1k / 2k / 5k / 10k / 15k / 20k Hz | 0: no filter |
-| FFT RANGE SETTING | 2 k to 75 kHz | Maximum frequency shown on the graph |
+| FFT RANGE SETTING | 200 / 500 / 1k / 2k to 75 kHz | Span of the frequency axis (from the start frequency) |
+| FFT START SETTING | 0 / 100 / 200 / 500 / 1k / 2k / 5k / 10k / 15k / 20k / 40k / 60k Hz | Start frequency of the graph (the linear frequency axis and the spectrogram) |
 
 The filters are applied to both CH1 and CH2 with the same settings. They are 2nd-order IIR filters (Q = 0.5): −6 dB at the cutoff frequency and 12 dB/oct beyond it. Cutoffs of half the sampling rate or more are not shown (up to 5k Hz for both LPF and HPF at 16 kHz).
 
@@ -706,6 +729,8 @@ Select the channel to analyze. When MIC is selected in INPUT SOURCE, it is a mic
 #### 4-3-3. Lines screen
 
 Select the number of lines to analyze. "Lines" is a term often used in vibration analysis: 100 LINES means a frame of 256 samples. So 400 LINES is a frame of 1024 samples, and 1600 LINES is 4096 samples.
+
+Only when INPUT SOURCE is FILE, 3200 LINES (8192 samples) and 6400 LINES (16384 samples) can also be selected. A recorded file does not need the real-time processing, so you can see fine frequencies (about 2.9 Hz steps with 6400 LINES at 48 kHz). MIC and FILE + SOUND are up to 1600 LINES.
 
 ![Lines screen](Documents/screenshots/SCR00012.png)
 
@@ -727,9 +752,13 @@ Check the effect of the digital filters. The upper waveform is the original sign
 
 ![Digital filter check screen](Documents/screenshots/SCR00016.png)
 
-#### 4-3-7. FFT range screen
+#### 4-3-7. FFT span and start frequency screens
 
-Set the range of the FFT output, that is, the maximum frequency of the output. For example, with "5000 Hz", the FFT output goes up to 5000 Hz. Use it to zoom in on the spectrum at low frequencies.
+Set the span of the frequency axis on FFT RANGE SETTING (Frequency Span), and the frequency where the graph starts on the following FFT START SETTING (Start Frequency). The graph shows "start frequency to start frequency + span". For example, with the span of "2000 Hz" and the start frequency of "10000 Hz", you can zoom in on 10 k to 12 kHz. With the start frequency of 0, the graph shows 0 Hz to the span.
+
+- The start frequency is used by the graphs of the linear frequency axis (`Freq Linear - mV`) and the spectrogram. The graphs of the log axis start from the low frequencies as before.
+- When the start frequency + span is over half the sampling rate, the start frequency is lowered to fit the screen.
+- The peak frequency on the screen is the actual frequency including the start frequency.
 
 ![FFT range screen](Documents/screenshots/SCR00017.png)
 
@@ -819,7 +848,7 @@ After setting the channel, lines, filters and range, the spectrum over time is s
 #### 4-5-1. Home screen
 
 
-#### 4-5-2. Channel, lines, filters and FFT range
+#### 4-5-2. Channel, lines, filters, FFT span and start frequency
 
 These settings are the same as those of **SINGLE FFT MONITOR**, so they are omitted here.
 
@@ -865,7 +894,7 @@ Limits of the recording:
 | Choice | Behavior |
 |---|---|
 | MIC | Analyzes the microphone inputs (normal operation) |
-| FILE | Analyzes `RECDATA/RECnnnnn.WAV` on the SD card as the input. On the PLAYBACK FILE screen, select one of up to 5 files (rate, channels and length are shown) |
+| FILE | Analyzes `RECDATA/RECnnnnn.WAV` on the SD card as the input. On the PLAYBACK FILE screen, select one of up to 20 newest files (rate, channels and length are shown). A 1ch file can be compared with another 1ch file of the same rate (4-7-5) |
 | FILE + SOUND | Analyzes the file like FILE and plays it on the headphone jack. Select the volume (+12 to −60 dB, −30 dB by default) on the PLAYBACK VOLUME screen, then select the file. The volume above 0 dB is for hearing small vibrations: a large signal may be distorted or too loud, so check it with the headphones away from your ears before turning it up. LPF / HPF are also applied to the sound |
 
 #### 4-7-1. Home screen
@@ -881,7 +910,7 @@ Select MIC (microphone input), FILE (signal analysis only) or FILE + SOUND (sign
 
 #### 4-7-3. Playback file screen
 
-Select the recorded file. The file name, sampling rate, number of channels and recording time are shown.
+Select the recorded file. The file name, sampling rate, number of channels and recording time are shown. Up to 20 newest files are listed, and the list scrolls with the cursor when there are more than 6 (a triangle on the right shows the hidden items).
 
 ![Playback file screen](Documents/screenshots/SCR00073.png)
 
@@ -890,6 +919,14 @@ Select the recorded file. The file name, sampling rate, number of channels and r
 Set the volume of the playback on the audio output, from 12 dB to −60 dB. The smaller the value, the quieter the sound.
 
 ![Playback volume screen](Documents/screenshots/SCR00075.png)
+
+#### 4-7-5. Compare file screen (FILE only)
+
+When you select a 1ch file with FILE and there is another 1ch file of the same sampling rate, the COMPARE FILE screen follows. With the second file, the first file is CH1 and the second file is CH2, and they are analyzed like a 2ch file. For example, you can overlay the vibrations before and after a countermeasure on DUAL FFT MONITOR and see the difference. Select `NONE` not to compare.
+
+- When the two files have different lengths, both go back to the top at the end of the shorter one.
+- Not available with FILE + SOUND.
+- When you select the first file again, the file to compare goes back to `NONE`.
 
 ## 5. Files on the SD card
 | File | Contents |
@@ -912,6 +949,8 @@ When an error occurs, an LED on the main board blinks.
 | LED3 | Out of memory | Reduce the lines or the channels |
 
 The serial monitor (115200 bps) shows the cause of the error, such as the file name.
+
+When the recorded file can't be read with FILE / FILE + SOUND, `SD READ ERROR` is shown in red at the top right of the graph. When the SD card does not answer any more, Spresense restarts automatically when you move to another screen.
 
 
 

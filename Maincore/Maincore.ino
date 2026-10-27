@@ -66,6 +66,7 @@ void setup() {
     }    
   }
   MP.RecvTimeout(MP_RECV_POLLING);
+  g_booted = true;
 }
 
 
@@ -188,6 +189,9 @@ void loop() {
     bSignalProcessingStarted = true;
     usleep(1);
   }
+
+  /* the WAV file could not be read: tell it before the data */
+  if (g_src != SRC_MIC) play_notify_error();
 
   /* request data to monitor sensors */
   if (appid == SID_REQ_MONDATA) {

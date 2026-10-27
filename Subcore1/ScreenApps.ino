@@ -675,6 +675,9 @@ void appSaveStatus(struct SaveStatus* st) {
   if (st->state == SAVE_STATE_OK) {
     sprintf(text, "SAVED %s #%d", st->filename, st->rows);
     color = ILI9341_YELLOW;
+  } else if (st->state == SAVE_STATE_MESSAGE) {
+    snprintf(text, sizeof(text), "%s", st->filename);
+    color = ILI9341_RED;
   } else {
     strcpy(text, "SAVE ERROR");
     color = ILI9341_RED;

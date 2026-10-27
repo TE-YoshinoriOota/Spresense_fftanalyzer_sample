@@ -414,6 +414,7 @@ struct CapStrip {
 /* (same layout in AppSystem.h and AppScreen.h) */
 #define SAVE_STATE_OK    (0)
 #define SAVE_STATE_ERROR (1)
+#define SAVE_STATE_MESSAGE (2)  /* the message in filename, in red (e.g. "SD READ ERROR") */
 
 struct SaveStatus {
   int  state;
