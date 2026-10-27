@@ -516,6 +516,8 @@ FILE で 1ch のファイルを選ぶと、同じサンプリングレートの 
 - FILE + SOUND では使えません。
 - 1 つ目のファイルを選び直すと、比較の選択は `NONE` に戻ります。
 
+![比較ファイル選択画面](Documents/screenshots/SCR00004.png)
+
 <br/><br/>
 <hr/>
 
@@ -937,6 +939,8 @@ When you select a 1ch file with FILE and there is another 1ch file of the same s
 - When the two files have different lengths, both go back to the top at the end of the shorter one.
 - Not available with FILE + SOUND.
 - When you select the first file again, the file to compare goes back to `NONE`.
+
+![Comapare file select screen](Documents/screenshots/SCR00004.png)
 
 ## 5. Files on the SD card
 | File | Contents |
