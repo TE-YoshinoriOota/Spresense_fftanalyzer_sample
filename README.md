@@ -266,19 +266,27 @@ INPUT SOURCE が FILE のときだけ、3200 LINES（8192 サンプル）と 640
 
 <br/>
 
-#### 4-3-7. FFT 表示幅・開始周波数設定画面
+#### 4-3-7. FFT 表示幅設定画面
 
 FFT RANGE SETTING（Frequency Span）でグラフに表示する周波数の幅を、続く FFT START SETTING（Start Frequency）で表示を始める周波数を設定します。グラフには「開始周波数 〜 開始周波数 + 表示幅」が表示されます。例えば表示幅を「2000 Hz」、開始周波数を「10000 Hz」にすると、10 k 〜 12 kHz を拡大して見られます。開始周波数が 0 のときは、0 Hz から表示幅までの表示です。
+
+![FFT出力レンジ設定画面](Documents/screenshots/SCR00001.png)
+
+<br/>
+
+#### 4-3-8. FFT 開始周波数設定画面
+
+FFT START SETTING（Start Frequency）で表示を始める周波数を設定します。グラフには「開始周波数 〜 開始周波数 + 表示幅」が表示されます。例えば表示幅を「2000 Hz」、開始周波数を「10000 Hz」にすると、10 k 〜 12 kHz を拡大して見られます。開始周波数が 0 のときは、0 Hz から表示幅までの表示です。
 
 - 開始周波数が使われるのは、周波数軸がリニアのグラフ（`Freq Linear - mV`）とスペクトログラムです。対数軸のグラフは、従来どおり低い周波数から表示します。
 - 開始周波数 + 表示幅がサンプリングレートの半分を超えるときは、開始周波数を自動で下げて画面に収めます。
 - ピーク周波数の表示は、開始周波数を含めた実際の周波数です。
 
-![FFT出力レンジ設定画面](Documents/screenshots/SCR00017.png)
+![FFT開始周波数画面](Documents/screenshots/SCR00003.png)
 
 <br/>
 
-#### 4-3-8. FFTグラフ選択画面
+#### 4-3-9. FFTグラフ選択画面
 
 FFTスペクトラムグラフを選択する画面です。
 
@@ -288,7 +296,7 @@ FFTスペクトラムグラフを選択する画面です。
 
 <br/>
 
-#### 4-3-9. FFT REALTIME MONITOR 画面
+#### 4-3-10. FFT REALTIME MONITOR 画面
 
 INPUT SOURCE が MIC もしくは FILE を選択している場合は、信号波形とスペクトルのみの出力になります。FILE + SOUND を選択している場合は、フィルタが適用された信号がスピーカーから出力されます。
 
@@ -760,7 +768,9 @@ Set the span of the frequency axis on FFT RANGE SETTING (Frequency Span), and th
 - When the start frequency + span is over half the sampling rate, the start frequency is lowered to fit the screen.
 - The peak frequency on the screen is the actual frequency including the start frequency.
 
-![FFT range screen](Documents/screenshots/SCR00017.png)
+![FFT range screen](Documents/screenshots/SCR0001.png)
+![FFT range screen](Documents/screenshots/SCR0003.png)
+
 
 #### 4-3-8. FFT graph screen
 
