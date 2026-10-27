@@ -519,7 +519,8 @@ void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int 
     if (bLongFft) {  /* a narrow peak must not be skipped */
       for (int n = 1; n < dskip && i + n < len; ++n) if (pFft[i+n] > v) v = pFft[i+n];
     }
-    for (int n = 0; n < gskip; ++n, ++j) spcDataBuf[j] = (float)(amp)*v;
+    /* a narrow span repeats a bin on many rows: stop at the top of the buffer */
+    for (int n = 0; n < gskip && j < SPC_GRAPH_HEIGHT; ++n, ++j) spcDataBuf[j] = (float)(amp)*v;
   }
   
   /* draw graph */
@@ -583,6 +584,7 @@ int get_scale_param_for_freq(int* fmaxdisp, int* gskip, int* dskip, int len, flo
   int gskip_, dskip_;
   do {
     flen = (int)(target_fmax/df);
+    if (flen < 1) flen = 1;  /* a span narrower than a bin */
     if (flen < FFT_GRAPH_WIDTH) {
       gskip_ = round((float)(FFT_GRAPH_WIDTH) / flen); if (gskip_ == 0) gskip_ = 1;
       dskip_ = 1;
@@ -634,6 +636,7 @@ int get_scale_param_for_spectro(int* gskip, int* dskip, int* fmaxdisp, int len, 
   if (fmaxdisp_ > available_max_freq) fmaxdisp_ = available_max_freq; 
 
   int flen = len*fmaxdisp_/available_max_freq;
+  if (flen < 1) flen = 1;  /* a span narrower than a bin */
   
   /* calclate the display range */
   int gskip_, dskip_;
