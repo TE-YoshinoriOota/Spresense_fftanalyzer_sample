@@ -84,7 +84,13 @@ SDClass theSD;
 #define SND_CHUNK        (8192) /* bytes written to the player at a time */
 /* the file list page of the player (AA810.txt) */
 #define PLAY_FILE_PAGE   (810)
-#define PLAY_LIST_MAX    (5)   /* a menu shows 5 items at most */
+#define PLAY_LIST_MAX    (20)  /* the menu scrolls on Subcore1 */
+#define PLAY_SCAN_MAX    (64)  /* the newest files probed for the file to compare */
+/* the page to select the second mono file to compare (FILE only, AA815.txt) */
+#define PLAY_CMP_PAGE    (815)
+/* FFT lines: 3200 and 6400 lines (8192 and 16384 samples) are for the WAV file without the sound */
+#define LINE_MAX         (1600)
+#define LINE_MAX_FILE    (6400)
 /* cap the FFT length on REC MONITOR to keep the heap for the recording fifo */
 #define REC_MAX_SAMP     (1024)
 
@@ -101,7 +107,7 @@ SDClass theSD;
 
 /* difinitions for application */
 #define SUBCORE (1)
-#define JSON_BUFFER    (2048)  /* the file list page needs more than 1024 */
+#define JSON_BUFFER    (4096)  /* the file list page of 20 files needs more than 2048 */
 
 #define MAX_FIFO_BUFF  (4096)
 #define MAX_CHANNEL    (4)
@@ -245,6 +251,7 @@ static float* pSubFft = NULL;
 static struct FftWavData fftWavData;
 static struct FftFftData fft2Data;
 static FFTClassKai *fft = NULL;
+static int fft_buf_len = 0;  /* the length of pFft and pSubFft */
 
 /* For WAV processing */
 static struct WavWavData wav2Data;
@@ -270,6 +277,7 @@ static int  g_win;
 static int  g_rech;  /* number of channels to record */
 static int  g_src;   /* input source: SRC_MIC or SRC_FILE */
 static int  g_pfile; /* number of the file to play (RECnnnnn.WAV) */
+static int  g_pcmp;  /* number of the mono file to compare as CH2 (FILE only, 0: none) */
 static int  g_nring; /* number of the ring buffers (2 for a mono file, CH2 is kept zero) */
 static bool g_play_ok; /* the file is opened for SRC_FILE */
 static bool g_sound;   /* the file is played on the headphone jack */
@@ -315,6 +323,10 @@ void play_close();
 void play_restart_clock();
 int  play_read(char* buf, int max_frames);
 void play_list_files(DynamicJsonDocument* doc, int pfile);
+void play_list_compare(DynamicJsonDocument* doc, int pfile, int pcmp);
+bool play_pair_ok(int pfile, int pcmp);
+bool play_open_compare(int no, const struct PlayInfo* first);
+void play_route_compare(struct Response* res, DynamicJsonDocument* sys);
 bool snd_start(int no, struct PlayInfo* info, int vol);
 void snd_fill();
 void snd_stop();

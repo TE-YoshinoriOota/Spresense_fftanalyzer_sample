@@ -45,6 +45,8 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     if (g_play_ok) {
       g_rate = info.rate;
       g_chnm = info.chnm;
+      /* FILE (not FILE + SOUND): the second mono file is CH2 */
+      if (g_src == SRC_FILE && g_pcmp > 0 && play_open_compare(g_pcmp, &info)) g_chnm = 2;
     } else {
       g_chnm = 1;
     }
@@ -63,6 +65,7 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
 
   /* Audio Memory Initialization */
   int ringbuff_size = MAX_FIFO_BUFF;
+  if (g_samp > ringbuff_size) ringbuff_size = g_samp;  /* the long FFT of the WAV file */
   if (pRaw != NULL) free((char*)pRaw);
   if (pWav != NULL) free((float*)pWav);
   if (pSubWav != NULL) free((float*)pSubWav);
@@ -148,8 +151,10 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
     if (pSubFft != NULL) free((float*)pSubFft);
 
     /* allocate memories from MainCore memory */
-    pFft = (float*)malloc(sizeof(float)*g_samp);
-    pSubFft = (float*)malloc(sizeof(float)*g_samp);
+    /* the long FFT of the WAV file has no room for g_samp: the spectrum is g_samp/2+1 */
+    fft_buf_len = (g_samp > FFT_CMSIS_MAX) ? g_samp/2 + 1 : g_samp;
+    pFft = (float*)malloc(sizeof(float)*fft_buf_len);
+    pSubFft = (float*)malloc(sizeof(float)*fft_buf_len);
     if (pFft == NULL || pSubFft == NULL) {
       MPLog("not enough memory\n");
       log_heap("at the error");
@@ -158,8 +163,8 @@ void init_processing(int8_t sid, DynamicJsonDocument* sys) {
       }
     }
 
-    memset(pFft, 0, sizeof(float)*g_samp);
-    memset(pSubFft, 0, sizeof(float)*g_samp);
+    memset(pFft, 0, sizeof(float)*fft_buf_len);
+    memset(pSubFft, 0, sizeof(float)*fft_buf_len);
     switch(g_win) {
     case FFT_WINDOW_RECTANGULAR:
       fft->begin(WindowRectangle, 0.5); // WindowHamming applied so far.
@@ -404,6 +409,13 @@ void calc_sensor_data(struct SensorData* sdata) {
   last_time = cur_time;
 }
 
+/* the time of the long FFT (the WAV file): every 20 frames */
+static void log_long_fft_time(uint32_t ms) {
+  static int frames = 0;
+  if (g_samp <= FFT_CMSIS_MAX) return;
+  if (++frames % 20 == 1) MPLog("FFT %d: %d ms\n", g_samp, (int)ms);
+}
+
 void calc_fft_data(struct FftWavData* fdata) {
   
   /* Copy data for FFT calculation */
@@ -428,7 +440,9 @@ void calc_fft_data(struct FftWavData* fdata) {
   memcpy(pTmp, pWav, sizeof(float)*g_samp); 
   fft->clear();
   //fft->fft_amp(pFft, pTmp);
+  uint32_t t0 = millis();
   fft->fft_scaled_amp(pFft, pTmp);
+  log_long_fft_time(millis() - t0);
   //mTime = millis() - mTime;
   //MPLog("time: %d\n", mTime);
    
@@ -466,7 +480,9 @@ void calc_fft2_data(struct FftFftData* fdata) {
   memcpy(pTmp, pWav, sizeof(float)*g_samp);
   fft->clear();
   // fft->fft_amp(pFft, pTmp);
+  uint32_t t0 = millis();
   fft->fft_scaled_amp(pFft, pTmp);
+  log_long_fft_time(millis() - t0);
 
   /* digital fitering */
   /* which is better? lpf first? hpf first? */

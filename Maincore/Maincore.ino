@@ -114,6 +114,8 @@ void loop() {
 
     /* update system properties */
     updateSysprop(sid, sjson, res);
+    /* a mono file of FILE: the next page is the file to compare (if any) */
+    play_route_compare(res, sjson);
 
     /* get the new page resources and update the json document */
     djson = updateJson(djson, res);

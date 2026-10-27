@@ -31,6 +31,10 @@
 /* Type Definition                                                  */
 /*------------------------------------------------------------------*/
 /* WINDOW TYPE */
+/* the longest real FFT of CMSIS: the longer FFT (8192, 16384) is made of the complex FFT of 2048 */
+/* inside the real FFT of 4096 (the tables of the other lengths take much RAM) */
+#define FFT_CMSIS_MAX (4096)
+
 typedef enum e_windowType {
   WindowHamming,
   WindowHanning,
@@ -56,6 +60,7 @@ public:
 private:
   int m_FFTLEN;
   int m_overlap;
+  windowType_t m_window;
   arm_rfft_fast_instance_f32 S;
 
   /* Temporary buffer */
@@ -64,6 +69,9 @@ private:
 
   void create_coef(windowType_t type);
   bool fft_init();
+  /* the long FFT works in the input buffer and calculates the window on the fly (no buffers) */
+  float window(int i);
+  void long_scaled_amp(float* pDst, float* pSrc);
 };
 
 #endif /*_FFT_H_*/

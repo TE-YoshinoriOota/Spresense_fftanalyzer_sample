@@ -1,0 +1,1 @@
+{"id":815,"title":"COMPARE FILE","type":1,"item_num":1,"cur0":0,"cur1":0,"item0":"NONE","item0_v":0,"ch_disp":0,"back":810,"next0":000,"res_label":"pcmp","B0":"DOWN","B1":"  UP","B2":"BACK","B3":"NEXT","ch0":0,"ch1":0}

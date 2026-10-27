@@ -6,6 +6,8 @@
  *  It reads the frames for the elapsed time, so the file is played at the recorded speed.
  *  At the end of the file it goes back to the top of the data.
  *  play_list_files() makes the file list page (AA810) of the RECnnnnn.WAV files.
+ *  FILE (not FILE + SOUND) can add a second mono file of the same rate (AA815):
+ *  the two files are read as CH1 and CH2, and both go back to the top at the end of the shorter.
  */
 
 static File     play_file;
@@ -17,6 +19,14 @@ static int      play_frame_bytes = 2;
 static uint32_t play_rate       = 0;
 static uint32_t play_start_us   = 0;
 static uint32_t play_frames_out = 0;  /* frames read since play_start_us */
+
+/* the second mono file to compare (CH2) */
+static File     cmp_file;
+static bool     cmp_opened      = false;
+static uint32_t cmp_data_start  = 0;
+static uint32_t cmp_data_bytes  = 0;
+static uint32_t cmp_pos         = 0;
+#define PLAY_PAIR_CHUNK (256)  /* frames read from each file at a time */
 
 static uint32_t play_le32(const uint8_t* p) {
   return p[0] | (p[1] << 8) | (p[2] << 16) | ((uint32_t)p[3] << 24);
@@ -111,6 +121,70 @@ bool play_open(int no, struct PlayInfo* info) {
 void play_close() {
   if (play_opened) play_file.close();
   play_opened = false;
+  if (cmp_opened) cmp_file.close();
+  cmp_opened = false;
+}
+
+/* open the second mono file of the same rate as the first one: the frames become stereo */
+bool play_open_compare(int no, const struct PlayInfo* first) {
+  char name[DATA_PATH_LEN];
+  struct PlayInfo info;
+  if (cmp_opened) cmp_file.close();
+  cmp_opened = false;
+  if (!play_opened || first->chnm != 1 || no <= 0) return false;
+  play_file_name(no, name);
+  if (!theSD.exists(name)) return false;
+  cmp_file = theSD.open(name, FILE_READ);
+  if (!cmp_file) return false;
+  if (!play_parse(cmp_file, &info) || info.chnm != 1 || info.rate != first->rate) {
+    MPLog("Play: %s can't be compared\n", name);
+    cmp_file.close();
+    return false;
+  }
+  cmp_data_start = info.data_start;
+  cmp_data_bytes = info.data_bytes;
+  cmp_pos = 0;
+  cmp_file.seek(cmp_data_start);
+  play_pos = 0;
+  play_file.seek(play_data_start);
+  play_frame_bytes = 2 * sizeof(int16_t);
+  cmp_opened = true;
+  MPLog("Play: compare with %s\n", name);
+  return true;
+}
+
+/* the two mono files into the stereo frames: false at a read error */
+static bool play_read_pair(int16_t* out, uint32_t frames) {
+  int16_t a[PLAY_PAIR_CHUNK], b[PLAY_PAIR_CHUNK];
+  while (frames > 0) {
+    uint32_t n = frames;
+    if (n > PLAY_PAIR_CHUNK) n = PLAY_PAIR_CHUNK;
+    uint32_t ra = (play_data_bytes - play_pos) / sizeof(int16_t);
+    uint32_t rb = (cmp_data_bytes - cmp_pos) / sizeof(int16_t);
+    if (ra == 0 || rb == 0) {
+      /* the end of the shorter file: both go back to the top to keep them together */
+      play_pos = 0;
+      play_file.seek(play_data_start);
+      cmp_pos = 0;
+      cmp_file.seek(cmp_data_start);
+      continue;
+    }
+    if (n > ra) n = ra;
+    if (n > rb) n = rb;
+    int bytes = n * sizeof(int16_t);
+    if (play_file.read((uint8_t*)a, bytes) != bytes || cmp_file.read((uint8_t*)b, bytes) != bytes) {
+      return false;
+    }
+    play_pos += bytes;
+    cmp_pos += bytes;
+    for (uint32_t i = 0; i < n; ++i) {
+      out[2*i]   = a[i];
+      out[2*i+1] = b[i];
+    }
+    out += 2 * n;
+    frames -= n;
+  }
+  return true;
 }
 
 /* call it when the capture thread starts */
@@ -135,7 +209,15 @@ int play_read(char* buf, int max_frames) {
 
   uint32_t want = frames * play_frame_bytes;
   uint32_t done = 0;
-  while (done < want) {
+  if (cmp_opened) {
+    if (play_read_pair((int16_t*)buf, frames)) {
+      done = want;
+    } else {
+      MPLog("Play: read error\n");
+      play_close();
+    }
+  }
+  while (!cmp_opened && play_opened && done < want) {
     if (play_pos >= play_data_bytes) {
       /* the end of the file: play it again from the top */
       play_pos = 0;
@@ -437,11 +519,9 @@ void snd_close() {
   }
 }
 
-/* make the items of the file list page: the newest PLAY_LIST_MAX files */
-void play_list_files(DynamicJsonDocument* doc, int pfile) {
-  int nums[PLAY_LIST_MAX];
+/* the numbers of RECnnnnn.WAV in the folder: the newest max files in descending order */
+static int play_scan(int* nums, int max) {
   int count = 0;
-
   File root = theSD.open(REC_DIR);
   if (root) {
     while (true) {
@@ -459,7 +539,7 @@ void play_list_files(DynamicJsonDocument* doc, int pfile) {
       if (no <= 0) continue;
       /* keep the numbers in descending order */
       int i = count;
-      if (count < PLAY_LIST_MAX) ++count;
+      if (count < max) ++count;
       else if (no < nums[count-1]) continue;
       else i = count - 1;
       while (i > 0 && nums[i-1] < no) { nums[i] = nums[i-1]; --i; }
@@ -467,18 +547,81 @@ void play_list_files(DynamicJsonDocument* doc, int pfile) {
     }
     root.close();
   }
+  return count;
+}
+
+/* an item of the file list: "REC00012 48k 1ch 1:05" */
+static void play_item_text(int no, char* text) {
+  struct PlayInfo info;
+  if (play_probe(no, &info)) {
+    uint32_t sec = info.data_bytes / (info.chnm * sizeof(int16_t)) / info.rate;
+    sprintf(text, "REC%05d %dk %dch %d:%02d", no, (int)(info.rate/1000), info.chnm
+          , (int)(sec/60), (int)(sec%60));
+  } else {
+    sprintf(text, "REC%05d ???", no);
+  }
+}
+
+/* the mono files of the same rate as pfile (except pfile): the newest max files */
+static int play_compare_files(int pfile, int* nums, int max) {
+  struct PlayInfo first, info;
+  if (!play_probe(pfile, &first) || first.chnm != 1) return 0;
+  int all[PLAY_SCAN_MAX];
+  int n = play_scan(all, PLAY_SCAN_MAX);
+  int count = 0;
+  for (int i = 0; i < n && count < max; ++i) {
+    if (all[i] == pfile) continue;
+    if (!play_probe(all[i], &info) || info.chnm != 1 || info.rate != first.rate) continue;
+    nums[count++] = all[i];
+  }
+  return count;
+}
+
+/* the second file can be compared with the first one */
+bool play_pair_ok(int pfile, int pcmp) {
+  struct PlayInfo a, b;
+  if (pcmp <= 0 || pcmp == pfile) return false;
+  if (!play_probe(pfile, &a) || !play_probe(pcmp, &b)) return false;
+  return a.chnm == 1 && b.chnm == 1 && a.rate == b.rate;
+}
+
+/* after the file list page of FILE: go to the page of the file to compare if there is one */
+void play_route_compare(struct Response* res, DynamicJsonDocument* sys) {
+  if (strcmp(res->label, "pfil") != 0 || res->next_id != 0) return;  /* NEXT only */
+  if (((*sys)["src"] | SRC_MIC) != SRC_FILE) return;
+  int nums[1];
+  if (play_compare_files(res->value, nums, 1) == 0) return;
+  res->next_id = PLAY_CMP_PAGE;
+}
+
+/* make the items of the page of the file to compare: "NONE" and the mono files of the same rate */
+void play_list_compare(DynamicJsonDocument* doc, int pfile, int pcmp) {
+  int nums[PLAY_LIST_MAX - 1];
+  int count = play_compare_files(pfile, nums, PLAY_LIST_MAX - 1);
+  int cur = 0;
+  (*doc)["item0"] = "NONE";
+  (*doc)["item0_v"] = 0;
+  for (int i = 0; i < count; ++i) {
+    char text[32];
+    play_item_text(nums[i], text);
+    (*doc)["item" + String(i+1)] = String(text);
+    (*doc)["item" + String(i+1) + "_v"] = nums[i];
+    if (nums[i] == pcmp) cur = i + 1;
+  }
+  (*doc)["item_num"] = count + 1;
+  (*doc)["cur0"] = cur;
+  MPLog("Play: %d files to compare\n", count);
+}
+
+/* make the items of the file list page: the newest PLAY_LIST_MAX files */
+void play_list_files(DynamicJsonDocument* doc, int pfile) {
+  int nums[PLAY_LIST_MAX];
+  int count = play_scan(nums, PLAY_LIST_MAX);
 
   int cur = 0;
   for (int i = 0; i < count; ++i) {
     char text[32];
-    struct PlayInfo info;
-    if (play_probe(nums[i], &info)) {
-      uint32_t sec = info.data_bytes / (info.chnm * sizeof(int16_t)) / info.rate;
-      sprintf(text, "REC%05d %dk %dch %d:%02d", nums[i], (int)(info.rate/1000), info.chnm
-            , (int)(sec/60), (int)(sec%60));
-    } else {
-      sprintf(text, "REC%05d ???", nums[i]);
-    }
+    play_item_text(nums[i], text);
     (*doc)["item" + String(i)] = String(text);
     (*doc)["item" + String(i) + "_v"] = nums[i];
     if (nums[i] == pfile) cur = i;

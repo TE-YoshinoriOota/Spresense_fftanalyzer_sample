@@ -42,6 +42,12 @@ static void normalize_sysprop(DynamicJsonDocument* sys) {
     MPLog("rech %d -> %d\n", rech, max_rech(rate, chnm));
     (*sys)["rech"] = max_rech(rate, chnm);
   }
+  int src  = (*sys)["src"] | SRC_MIC;
+  int line = (*sys)["line"];
+  if (src != SRC_FILE && line > LINE_MAX) {
+    MPLog("line %d -> %d for the source %d\n", line, LINE_MAX, src);
+    (*sys)["line"] = LINE_MAX;
+  }
   const char* fkey[2] = { "lpf", "hpf" };
   for (int i = 0; i < 2; ++i) {
     int cutoff = (*sys)[fkey[i]];
@@ -104,6 +110,23 @@ static void patch_filter(DynamicJsonDocument* doc, int rate, int value) {
   (*doc)["cur0"] = cur;
 }
 
+/* the input page of the FFT lines: 3200 and 6400 lines are only for the WAV file without the sound */
+static void patch_line(DynamicJsonDocument* doc, int src, int value) {
+  int num = (*doc)["inp_num"];
+  int max = (src == SRC_FILE) ? LINE_MAX_FILE : LINE_MAX;
+  int n = 0;
+  while (n < num && (int)(*doc)["input"][n] <= max) ++n;
+  if (n < 1) n = 1;
+  patched_id = (*doc)["id"];
+  patched_num[0] = num;
+  (*doc)["inp_num"] = n;
+  int cur = n - 1;
+  for (int i = 0; i < n; ++i) {
+    if ((int)(*doc)["input"][i] == value) cur = i;
+  }
+  (*doc)["cur0"] = cur;
+}
+
 /* the input page of the volume: put the cursor on the volume of sys.txt */
 static void patch_volume(DynamicJsonDocument* doc, int value) {
   int num = (*doc)["inp_num"];
@@ -122,7 +145,9 @@ void patchPage(DynamicJsonDocument* doc, DynamicJsonDocument* sys) {
   bool rech_page = (strcmp(label, "rech") == 0);
   bool filt_page = (strcmp(label, "lpf") == 0 || strcmp(label, "hpf") == 0);
   bool pvol_page = (strcmp(label, "pvol") == 0);
-  if (!chnm_page && !rech_page && !filt_page && !pvol_page && id != REC_CH_PAGE && id != REC_DCH_PAGE) return;
+  bool line_page = (strcmp(label, "line") == 0);
+  if (!chnm_page && !rech_page && !filt_page && !pvol_page && !line_page
+      && id != REC_CH_PAGE && id != REC_DCH_PAGE) return;
 
   if (!sys->containsKey("rate")) readSysprop(g_sid, sys);
   int rate = (*sys)["rate"];
@@ -131,6 +156,8 @@ void patchPage(DynamicJsonDocument* doc, DynamicJsonDocument* sys) {
   int rech = (*sys)["rech"] | 1;
   if (filt_page) {
     patch_filter(doc, rate, (*sys)[label]);
+  } else if (line_page) {
+    patch_line(doc, (*sys)["src"] | SRC_MIC, (*sys)["line"]);
   } else if (pvol_page) {
     patch_volume(doc, (*sys)["pvol"] | PLAY_VOL_INIT);
   } else if (chnm_page) {
@@ -152,14 +179,16 @@ void patchSource(DynamicJsonDocument* doc, DynamicJsonDocument* sys) {
   int pfile = (*sys)["pfil"] | 0;
   int id    = (*doc)["id"];
   int type  = (*doc)["type"];
+  int pcmp  = (*sys)["pcmp"] | 0;
   if (id == PLAY_FILE_PAGE) play_list_files(doc, pfile);
+  if (id == PLAY_CMP_PAGE)  play_list_compare(doc, pfile, pcmp);
 
   int mono = 0;
   if (src != SRC_MIC) {
     struct PlayInfo info;
     if (!play_probe(pfile, &info)) {
       src = SRC_FILE_ERROR;
-    } else if (info.chnm == 1) {
+    } else if (info.chnm == 1 && !(src == SRC_FILE && play_pair_ok(pfile, pcmp))) {
       switch (type) {
       case PAGE_TYPE_FFT2: case PAGE_TYPE_LSJU: case PAGE_TYPE_WVWV:
       case PAGE_TYPE_FTLG: case PAGE_TYPE_FFDB:
@@ -210,11 +239,14 @@ void update_system_properties(int8_t sid, DynamicJsonDocument* sys) {
   g_rech  = (*sys)["rech"] | 1; // 1 if not set yet
   g_src   = (*sys)["src"] | SRC_MIC;
   g_pfile = (*sys)["pfil"] | 0;
+  g_pcmp  = (*sys)["pcmp"] | 0;
   /* pvol is the volume in dB: vol of the older page was the attenuation */
   if (sys->containsKey("pvol")) g_vol = (*sys)["pvol"];
   else                          g_vol = -((*sys)["vol"] | -PLAY_VOL_INIT);
   if (g_vol < PLAY_VOL_MIN) g_vol = PLAY_VOL_MIN;
   if (g_vol > PLAY_VOL_MAX) g_vol = PLAY_VOL_MAX;
+  /* the long FFT (more than 1600 lines) is only for the WAV file without the sound */
+  if (g_src != SRC_FILE && g_samp > MAX_FIFO_BUFF) g_samp = MAX_FIFO_BUFF;
 }
 
 /*
@@ -455,6 +487,7 @@ void updateSysprop(int8_t sid, DynamicJsonDocument* doc, struct Response* res) {
   appid /= 100;
   (*doc)["app"] = appid;
   (*doc)[label] = value;
+  if (strcmp(label, "pfil") == 0) (*doc)["pcmp"] = 0;  /* select the file to compare again */
   normalize_sysprop(doc);
   if (!cfg_write(sfile, doc)) {
     while (true) {

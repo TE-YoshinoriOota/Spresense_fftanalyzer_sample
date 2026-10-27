@@ -80,6 +80,7 @@
 #define UI_MENU_TOP      (40)       /* the area of the menu rows */
 #define UI_MENU_BOTTOM   (208)
 #define UI_MENU_PITCH    (30)       /* at most */
+#define UI_MENU_ROWS     (6)        /* the rows on a screen: a longer menu (the file list) scrolls */
 #define UI_ROW_MARGIN    (4)        /* between rows */
 #define UI_ROW_SIDE      (8)
 #define UI_ROW_RIGHT     (312)
@@ -309,7 +310,8 @@ const static int highAmpSteps[] = { 125, 167, 250, 500 };
 #define DBV_TOP_STEP      (10)   /* FFT REALTIME (dBV): the top follows AMP by 10 dB */
 #define DIFF_DB_RANGE     (20)     /* the difference graph in dB shows -20 to +20 dB */
 #define DIFF_DB_FLOOR     (1.0e-7) /* to avoid log(0) */
-#define MAX_FFT_BINS      (2048)   /* 4096 samples (1600 lines) / 2 */
+#define MAX_FFT_BINS      (8192)   /* 16384 samples (6400 lines, the WAV file) / 2 */
+#define MIC_FFT_BINS      (2048)   /* 4096 samples (1600 lines) / 2 */
 #define DBV_MAG_INIT      (1.0)
 #define DBV_MAG_STEP      (0.2) 
 #define DBV_MAG_MIN       (0.2)
@@ -507,6 +509,7 @@ static int32_t  inpsel[100];  /* int32_t: 75000 Hz and negative dB */
 static int      fmaxdisp = 10000; /* Hz: the span of the frequency axis (from the start frequency) */
 static int      fstartdisp = 0;   /* Hz: the start frequency of the linear graphs (FFT START SETTING) */
 static float    fstartshown = 0;  /* Hz: the start frequency of the graph on the screen (on a bin) */
+static bool     bLongFft = false; /* more than MIC_FFT_BINS: a pixel shows the peak of its bins */
 static bool     scale_update = false;
 
 /* magnification parameters */

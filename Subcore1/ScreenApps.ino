@@ -52,6 +52,7 @@ void appDraw2WayGraph(float* pWav, int len0, float *pFft, int len1, float df) {
   int span = fmaxdisp;
   int k0 = 0;
   fstartshown = 0;
+  bLongFft = (len1 > MIC_FFT_BINS);
   if (bLogDisplay == false) k0 = freq_start_bin(span, len1, df);
   int flen = (k0 == 0) ? get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len1, df)
                        : get_scale_param_for_freq(&span, &gskip, &dskip, len1 - k0, df);
@@ -117,6 +118,7 @@ void appDraw2FftGraph(float* pFft, float* pSubFft, int len, float df) {
   int span = fmaxdisp;
   int k0 = 0;
   fstartshown = 0;
+  bLongFft = (len > MIC_FFT_BINS);
   if (bLogDisplay == false) k0 = freq_start_bin(span, len, df);
   int flen = (k0 == 0) ? get_scale_param_for_freq(&fmaxdisp, &gskip, &dskip, len, df)
                        : get_scale_param_for_freq(&span, &gskip, &dskip, len - k0, df);
@@ -269,6 +271,7 @@ void appDrawSpectroGraph(float* pFft, int len, float df) {
   int gskip, dskip;
   int span = fmaxdisp;
   fstartshown = 0;
+  bLongFft = (len > MIC_FFT_BINS);
   int k0 = freq_start_bin(span, len, df);
   int flen = (k0 == 0) ? get_scale_param_for_spectro(&gskip, &dskip, &fmaxdisp, len, df)
                        : get_scale_param_for_spectro(&gskip, &dskip, &span, len - k0, df);
@@ -358,7 +361,14 @@ void drawDiffFftGraph(float* pFft, float* pSubFft, int len, float df, int amp, i
     }
     memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
     for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
-      graphDataBuf[j] = (float)(amp*(pFft[i] - pSubFft[i])*WAV_MAX_VOL);
+      float d = pFft[i] - pSubFft[i];
+      if (bLongFft) {  /* the largest difference of the bins of the pixel */
+        for (int n = 1; n < dskip && i + n < len; ++n) {
+          float e = pFft[i+n] - pSubFft[i+n];
+          if (fabsf(e) > fabsf(d)) d = e;
+        }
+      }
+      graphDataBuf[j] = (float)(amp*d*WAV_MAX_VOL);
     }
     putBufLinearGraph(frameBuf, graphDataBuf
                     , WAV_MAX_VOL, gskip
@@ -393,7 +403,11 @@ void drawLinearFftGraph(float* pFft, int len, float df, int amp, int gskip, int 
   /* copy and scale the data to display */
   if (disp == true)  memset(graphDataBuf, 0, sizeof(float)*FFT_GRAPH_WIDTH);
   for (i = 0, j = 0; i < len && j < FFT_GRAPH_WIDTH-1; i += dskip, ++j) {
-    graphDataBuf[j] = (float)(amp*pFft[i]*WAV_MAX_VOL);
+    float v = pFft[i];
+    if (bLongFft) {  /* a narrow peak must not be skipped */
+      for (int n = 1; n < dskip && i + n < len; ++n) if (pFft[i+n] > v) v = pFft[i+n];
+    }
+    graphDataBuf[j] = (float)(amp*v*WAV_MAX_VOL);
   }
 
   /* draw graph */
@@ -501,7 +515,11 @@ void drawSpectroGraph(float* pFft, int len, float df, int gskip, int dskip, int 
   /* copy and scale the data to display */
   memset(spcDataBuf, 0, sizeof(float)*SPC_GRAPH_HEIGHT);
   for (i = 0, j = 0; i < len && j < SPC_GRAPH_HEIGHT-1; i += dskip) {
-    for (int n = 0; n < gskip; ++n, ++j) spcDataBuf[j] = (float)(amp)*pFft[i];
+    float v = pFft[i];
+    if (bLongFft) {  /* a narrow peak must not be skipped */
+      for (int n = 1; n < dskip && i + n < len; ++n) if (pFft[i+n] > v) v = pFft[i+n];
+    }
+    for (int n = 0; n < gskip; ++n, ++j) spcDataBuf[j] = (float)(amp)*v;
   }
   
   /* draw graph */

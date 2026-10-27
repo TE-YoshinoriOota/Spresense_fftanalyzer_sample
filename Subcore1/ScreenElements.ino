@@ -319,11 +319,14 @@ static int menuPitch = UI_MENU_PITCH;
 static int menuRight = UI_ROW_RIGHT;
 static int menuPrev0 = -1;               /* the selected rows drawn last time */
 static int menuPrev1 = -1;
+static int menuScroll = 0;               /* the item on the first row (a long menu) */
 
 /* place the rows in the middle of the area between the title and the buttons */
 static void layoutMenu(int num) {
   int area = UI_MENU_BOTTOM - UI_MENU_TOP;
   if (num < 1) num = 1;
+  if (num > UI_MENU_ROWS) num = UI_MENU_ROWS;
+  menuScroll = 0;
   menuPitch = area / num;
   if (menuPitch > UI_MENU_PITCH) menuPitch = UI_MENU_PITCH;
   menuTop = UI_MENU_TOP + (area - menuPitch*num)/2;
@@ -352,15 +355,45 @@ static void drawMenuRow(int x0, int x1, int row, const char* text, bool selected
   putTextFont(x0 + UI_ROW_TEXT_PAD, base, s.c_str(), fg, &FreeSans9pt7b);
 }
 
+/* the marks of the hidden items above and below the rows of a long menu */
+static void drawScrollMarks() {
+  int x = UI_ROW_RIGHT + 1;
+  int top = menuTop;
+  int bottom = menuTop + menuPitch*UI_MENU_ROWS - UI_ROW_MARGIN;
+  tft.fillRect(x, top, SCREEN_WIDTH - x, bottom - top, ILI9341_BLACK);
+  if (menuScroll > 0) {
+    tft.fillTriangle(x + 3, top, x, top + 5, x + 6, top + 5, UI_TEXT_COLOR);
+  }
+  if (menuScroll + UI_MENU_ROWS < item0_num) {
+    tft.fillTriangle(x + 3, bottom, x, bottom - 5, x + 6, bottom - 5, UI_TEXT_COLOR);
+  }
+}
+
+/* draw all the rows of a long menu from menuScroll */
+static void drawMenuRows(int cur) {
+  for (int r = 0; r < UI_MENU_ROWS && menuScroll + r < item0_num; ++r) {
+    String item = "item" + String(menuScroll + r);
+    drawMenuRow(UI_ROW_SIDE, menuRight, r, (*doc)[item.c_str()], menuScroll + r == cur);
+  }
+  drawScrollMarks();
+}
+
 /* Cursor operation for menu and page screens */
 void curOperation(int cur) {
   if (cur < 0 || cur >= item0_num) return;
+  /* a long menu: scroll the rows to show the cursor */
+  if (cur < menuScroll || cur >= menuScroll + UI_MENU_ROWS) {
+    menuScroll = (cur < menuScroll) ? cur : cur - UI_MENU_ROWS + 1;
+    drawMenuRows(cur);
+    menuPrev0 = cur;
+    return;
+  }
   if (menuPrev0 >= 0 && menuPrev0 != cur && menuPrev0 < item0_num) {
     String item = "item" + String(menuPrev0);
-    drawMenuRow(UI_ROW_SIDE, menuRight, menuPrev0, (*doc)[item.c_str()], false);
+    drawMenuRow(UI_ROW_SIDE, menuRight, menuPrev0 - menuScroll, (*doc)[item.c_str()], false);
   }
   String item = "item" + String(cur);
-  drawMenuRow(UI_ROW_SIDE, menuRight, cur, (*doc)[item.c_str()], true);
+  drawMenuRow(UI_ROW_SIDE, menuRight, cur - menuScroll, (*doc)[item.c_str()], true);
   menuPrev0 = cur;
 }
 
@@ -462,6 +495,13 @@ void buildMenu(DynamicJsonDocument* jdoc) {
 #ifdef SCR_DEBUG
   MPLog("SELECTION ITEM : %d\n", item0_num);
 #endif
+  if (item0_num > UI_MENU_ROWS) {
+    /* a long menu: show the cursor on the last row at most */
+    if (cur0 >= UI_MENU_ROWS) menuScroll = cur0 - UI_MENU_ROWS + 1;
+    drawMenuRows(cur0);
+    menuPrev0 = cur0;
+    return;
+  }
   for (int i = 0; i < item0_num; ++i) {
     if (i == cur0) continue;
     String item = "item" + String(i);
