@@ -12,6 +12,11 @@ powershell -NoProfile -Command "[System.IO.Ports.SerialPort]::GetPortNames()"
 set PORT=
 set /p PORT=Port of Spresense, e.g. COM3 (empty: skip): 
 if "%PORT%"=="" goto sdcard
+echo.
+echo Writing the firmware (Maincore, Subcore1): about 1-2 minutes.
+echo Do not disconnect the USB cable or press the reset button until it finishes.
+echo The progress may not be shown. Please wait for "Done.".
+echo.
 tools\flash_writer.exe -s -c %PORT% -d -n firmware\Maincore.spk firmware\Subcore1.spk
 if errorlevel 1 (
   echo Failed. Check the bootloader, the USB driver and the cable ^(README.txt^).

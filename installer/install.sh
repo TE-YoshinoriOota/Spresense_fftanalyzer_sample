@@ -24,6 +24,12 @@ else
       echo "$port に書き込めません。上のコマンドを実行し、ログインし直してください。"
       exit 1
     fi
+    echo
+    echo "Writing the firmware (Maincore, Subcore1): about 1-2 minutes."
+    echo "Do not disconnect the USB cable or press the reset button until it finishes."
+    echo "ファームウェアを書き込んでいます（Maincore、Subcore1）。1〜2 分かかります。"
+    echo "終わるまで USB ケーブルを抜いたり、リセットボタンを押したりしないでください。"
+    echo
     if "$FW" -s -c "$port" -d -n firmware/Maincore.spk firmware/Subcore1.spk; then
       echo "Done / 書き込み完了"
     else
